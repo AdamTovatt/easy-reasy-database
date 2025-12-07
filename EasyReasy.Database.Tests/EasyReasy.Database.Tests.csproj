@@ -21,4 +21,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\EasyReasy.Database.Sqlite\EasyReasy.Database.Sqlite.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database.Testing\EasyReasy.Database.Testing.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database\EasyReasy.Database.csproj" />
+  </ItemGroup>
+
 </Project>
