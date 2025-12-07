@@ -1,3 +1,5 @@
+← [Back to overview](../README.md)
+
 # EasyReasy.Database.Testing
 
 Utilities for testing code that uses the EasyReasy.Database library.
@@ -172,7 +174,7 @@ Repository = new CustomerRepository(TestDatabaseManager.DataSource, sessionFacto
 
 ## Test Naming Conventions
 
-> This doesn't matter for this library, this is just a general note about testing conventions.
+> The following test naming conventions aren't specific to this library and not something that is required by this library. It's just a general note on testing conventions.
 
 All test methods should follow the three-part naming convention: `MethodBeingTested_Scenario_ExpectedBehavior`
 
