@@ -1,4 +1,4 @@
-← [Back to main domain overview](../../README.md)
+← [Back to overview](../README.md)
 
 # Database Usage Guide
 
