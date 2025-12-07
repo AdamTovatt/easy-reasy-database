@@ -2,6 +2,8 @@
 
 # Database Usage Guide
 
+> **Note**: Some examples in this guide use Dapper (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`) for query execution, but Dapper is **not a dependency** of this library. This library is database-agnostic and works with any ADO.NET-compatible database provider and any query library you choose to use (Dapper, Entity Framework Core, raw ADO.NET, etc.).
+
 ## For Service Developers (Using Repositories)
 
 ### Single Query (Most Common)
@@ -158,7 +160,7 @@ public class CustomerRepository : RepositoryBase, ICustomerRepository
 protected async Task<T> UseSessionAsync<T>(Func<IDbSession, Task<T>> action, IDbSession? session = null)
 ```
 
-**Always pass `dbSession.Transaction` to Dapper** - ensures query participates in transaction if one exists:
+**Always pass `dbSession.Transaction` to your query library** - ensures query participates in transaction if one exists. For example, with Dapper:
 ```csharp
 await dbSession.Connection.QueryAsync<T>(query, parameters, transaction: dbSession.Transaction);
 ```
