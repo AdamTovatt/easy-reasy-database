@@ -1,8 +1,14 @@
 ← [Back to overview](../README.md)
 
-# Database Usage Guide
+# EasyReasy.Database
 
-> **Note**: Some examples in this guide use Dapper (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`) for query execution, but Dapper is **not a dependency** of this library. This library is database-agnostic and works with any ADO.NET-compatible database provider and any query library you choose to use (Dapper, Entity Framework Core, raw ADO.NET, etc.).
+> **Note**: Some examples in this guide use Dapper (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`) for query execution, but Dapper is **not a dependency** of this library. This library is database-agnostic and works with any ADO.NET-compatible database provider and any query library you choose to use.
+
+This file provides an overview of how EasyReasy.Database can be use from two points of view: service developers and repository developers.
+
+If you are thinking about writing a repository class you might want to jump to the section about [creating repositories](#for-repository-developers-creating-repositories). It might also be good to [understand database sessions](#understanding-database-sessions).
+
+If you already have a repository and you are thinking about writing a service that uses it you can read in the section about [using repositories](#for-service-developers-using-repositories). That's the section just below here.
 
 ## For Service Developers (Using Repositories)
 
@@ -169,6 +175,7 @@ await dbSession.Connection.QueryAsync<T>(query, parameters, transaction: dbSessi
 ```csharp
 Task<ReturnType> MethodNameAsync(params, IDbSession? session = null)
 ```
+All methods should have an optional parameter of type `IDbSession?` so that an implementation of `IDbSession` can be passed by the caller. This allows callers to control connection and transaction behaviour if they want to but also allows for fallback to a simple one connection per query without any explicit transaction control.
 
 **Consider using `nameof()` for parameters** - instead of hardcoding the names, for example:
 ```csharp
