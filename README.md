@@ -4,6 +4,9 @@
 
 The EasyReasy Database system simplifies database integration and testing. It provides a standardized way to write repositories with automatic connection and transaction management, and includes testing utilities that make integration tests performant by running them in transactions that are automatically rolled back.
 
+## Getting Started
+Click the name of the library you want to read more about in the table below to get started.
+
 ## Projects
 
 | Project | NuGet | Description |
