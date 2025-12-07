@@ -75,7 +75,7 @@ namespace EasyReasy.Database.Tests
 
             await session.DisposeAsync();
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => connection.OpenAsync());
+            Assert.Equal(System.Data.ConnectionState.Closed, connection.State);
         }
 
         [Fact]

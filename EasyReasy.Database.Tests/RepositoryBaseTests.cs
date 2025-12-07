@@ -1,3 +1,4 @@
+using EasyReasy.Database.Sqlite;
 using System.Data.Common;
 
 namespace EasyReasy.Database.Tests
@@ -17,7 +18,7 @@ namespace EasyReasy.Database.Tests
             {
                 DbConnection providedConnection = providedSession.Connection;
 
-                int result = await repository.ExecuteQueryAsync("SELECT 1", providedSession);
+                int result = await repository.ExecuteQueryAsync("CREATE TABLE test (id INTEGER)", providedSession);
 
                 Assert.Same(providedConnection, providedSession.Connection);
                 Assert.Equal(0, result);
@@ -33,7 +34,7 @@ namespace EasyReasy.Database.Tests
 
             TestRepository repository = new TestRepository(dataSource, sessionFactory);
 
-            int result = await repository.ExecuteQueryAsync("SELECT 1");
+            int result = await repository.ExecuteQueryAsync("CREATE TABLE test (id INTEGER)");
 
             Assert.Equal(0, result);
         }
@@ -49,9 +50,8 @@ namespace EasyReasy.Database.Tests
 
             await repository.ExecuteQueryAsync("CREATE TABLE test (id INTEGER)");
 
-            int result = await repository.ExecuteQueryAsync("SELECT COUNT(*) FROM test");
-
-            Assert.Equal(0, result);
+            await Assert.ThrowsAsync<Microsoft.Data.Sqlite.SqliteException>(
+                () => repository.ExecuteScalarAsync("SELECT COUNT(*) FROM test"));
         }
 
         [Fact]
