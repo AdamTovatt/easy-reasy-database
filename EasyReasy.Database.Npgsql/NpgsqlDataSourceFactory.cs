@@ -1,4 +1,3 @@
-using CarelessApi.Domain.Customers.Models;
 using Npgsql;
 using System.Data.Common;
 
@@ -10,9 +9,25 @@ namespace EasyReasy.Database
     /// </summary>
     public class NpgsqlDataSourceFactory : IDataSourceFactory
     {
+        private Action<NpgsqlDataSourceBuilder>? _builderAction;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NpgsqlDataSourceFactory"/> class.
+        /// </summary>
+        public NpgsqlDataSourceFactory() { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NpgsqlDataSourceFactory"/> class with a builder action.
+        /// </summary>
+        /// <param name="builerAcion">An optional action to configure the data source builder (e.g., enum mappings).</param>
+        public NpgsqlDataSourceFactory(Action<NpgsqlDataSourceBuilder>? builerAcion)
+        {
+            _builderAction = builerAcion;
+        }
+
         /// <summary>
         /// Creates a new Npgsql data source from the provided connection string.
-        /// Configures enum mappings required for proper database interaction.
+        /// Applies the configured builder action if one was provided.
         /// </summary>
         /// <param name="connectionString">The PostgreSQL connection string.</param>
         /// <returns>A configured Npgsql data source.</returns>
@@ -20,7 +35,7 @@ namespace EasyReasy.Database
         {
             NpgsqlDataSourceBuilder dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 
-            dataSourceBuilder.MapEnum<Pronoun>("pronoun");
+            _builderAction?.Invoke(dataSourceBuilder);
 
             return dataSourceBuilder.Build();
         }

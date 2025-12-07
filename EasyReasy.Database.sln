@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36623.8 d17.14
+VisualStudioVersion = 17.14.36623.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyReasy.Database", "EasyReasy.Database\EasyReasy.Database.csproj", "{FD3779F2-A8B6-4EE9-8871-FD921D916BD3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyReasy.Database.Npgsql", "EasyReasy.Database.Npgsql\EasyReasy.Database.Npgsql.csproj", "{0E8C3253-1854-4022-AB72-8DB2DD310D20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyReasy.Database.Testing", "EasyReasy.Database.Testing\EasyReasy.Database.Testing.csproj", "{3134B5DC-96FC-4AA5-9985-8B1313A23771}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{FD3779F2-A8B6-4EE9-8871-FD921D916BD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FD3779F2-A8B6-4EE9-8871-FD921D916BD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FD3779F2-A8B6-4EE9-8871-FD921D916BD3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E8C3253-1854-4022-AB72-8DB2DD310D20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E8C3253-1854-4022-AB72-8DB2DD310D20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E8C3253-1854-4022-AB72-8DB2DD310D20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E8C3253-1854-4022-AB72-8DB2DD310D20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3134B5DC-96FC-4AA5-9985-8B1313A23771}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3134B5DC-96FC-4AA5-9985-8B1313A23771}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3134B5DC-96FC-4AA5-9985-8B1313A23771}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3134B5DC-96FC-4AA5-9985-8B1313A23771}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
