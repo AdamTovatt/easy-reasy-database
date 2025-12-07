@@ -1,6 +1,6 @@
 # EasyReasy Database System Overview
 
-The Easy Reasy Database system is created to make it easier to write database integrations as well as unit tests and database integration tests related to that. It provides a simplified and standardized way to write repositories and tests for them that are performant since they run the test code inside transactions that can just be rolled back.
+The EasyReasy Database system simplifies database integration and testing. It provides a standardized way to write repositories with automatic connection and transaction management, and includes testing utilities that make integration tests performant by running them in transactions that are automatically rolled back.
 
 ## Projects
 

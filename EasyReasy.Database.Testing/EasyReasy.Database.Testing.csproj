@@ -4,10 +4,35 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>EasyReasy.Database.Testing</Title>
+    <Authors>Adam Tovatt</Authors>
+    <Description>Testing utilities for EasyReasy.Database. Provides fake database sessions for unit tests and test database management for integration tests with automatic transaction rollback.</Description>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/AdamTovatt/easy-reasy-database</PackageProjectUrl>
+    <PackageIcon>BaseIcon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/AdamTovatt/easy-reasy-database</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IncludeSymbols>True</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\EasyReasy.Database\EasyReasy.Database.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Art\BaseIcon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
