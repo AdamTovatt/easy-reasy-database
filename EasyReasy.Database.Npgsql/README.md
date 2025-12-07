@@ -2,7 +2,15 @@
 
 # EasyReasy.Database.Npgsql
 
+[![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Npgsql.svg)](https://www.nuget.org/packages/EasyReasy.Database.Npgsql/)
+
 PostgreSQL-specific implementation of `IDataSourceFactory` for creating Npgsql data sources.
+
+## Installation
+
+```bash
+dotnet add package EasyReasy.Database.Npgsql
+```
 
 ## NpgsqlDataSourceFactory
 

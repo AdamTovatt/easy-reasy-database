@@ -2,6 +2,8 @@
 
 # EasyReasy.Database
 
+[![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.svg)](https://www.nuget.org/packages/EasyReasy.Database/)
+
 > **Note**: Some examples in this guide use Dapper (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`) for query execution, but Dapper is **not a dependency** of this library. This library is database-agnostic and works with any ADO.NET-compatible database provider and any query library you choose to use.
 
 This file provides an overview of how EasyReasy.Database can be use from two points of view: service developers and repository developers.
@@ -9,6 +11,12 @@ This file provides an overview of how EasyReasy.Database can be use from two poi
 If you are thinking about writing a repository class you might want to jump to the section about [creating repositories](#for-repository-developers-creating-repositories). It might also be good to [understand database sessions](#understanding-database-sessions).
 
 If you already have a repository and you are thinking about writing a service that uses it you can read in the section about [using repositories](#for-service-developers-using-repositories). That's the section just below here.
+
+## Installation
+
+```bash
+dotnet add package EasyReasy.Database
+```
 
 ## For Service Developers (Using Repositories)
 

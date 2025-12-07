@@ -2,7 +2,15 @@
 
 # EasyReasy.Database.Testing
 
+[![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Testing.svg)](https://www.nuget.org/packages/EasyReasy.Database.Testing/)
+
 Utilities for testing code that uses the EasyReasy.Database library.
+
+## Installation
+
+```bash
+dotnet add package EasyReasy.Database.Testing
+```
 
 ## For Service Tests (Unit Tests)
 
