@@ -1,6 +1,10 @@
 # EasyReasy.Database.Mapping
 
-A lightweight SQL-to-object mapping library that provides extension methods on `DbConnection` for executing queries and deserializing results. Designed as a focused replacement for Dapper that correctly handles custom type handlers for all types, including enums.
+A lightweight SQL-to-object mapping library that provides extension methods on `DbConnection` for executing queries and deserializing results. Designed as a focused replacement for Dapper with three improvements over Dapper:
+
+- **Type handlers that actually work for enums** - Dapper silently ignores registered handlers for enum types. This library checks the handler registry first.
+- **Automatic snake_case column mapping** - PostgreSQL columns like `created_at` map to `CreatedAt` properties without `AS` aliases.
+- **Constructor-based entity creation** - Entities can use constructors instead of requiring a parameterless constructor with settable properties, enabling proper non-nullable reference type (NRT) support.
 
 ## Why This Exists
 
@@ -108,59 +112,153 @@ IEnumerable<Customer> customers = await grid.ReadAsync<Customer>();
 
 Register custom type handlers to control how values are read from and written to the database. Unlike Dapper, handlers registered for enum types are correctly invoked.
 
-### Defining a Handler
+### Enum Type Handlers
+
+Use the `[DbName]` attribute on enum fields and register a `DbNameEnumHandler<T>` to automatically map between enum values and their database string representations.
 
 ```csharp
-public class CustomerStatusHandler : TypeHandler<CustomerStatus>
+public enum CustomerStatus
 {
-    public override void SetValue(IDbDataParameter parameter, CustomerStatus value)
+    [DbName("active")]
+    Active,
+
+    [DbName("inactive")]
+    Inactive
+}
+```
+
+```csharp
+TypeHandlerRegistry.AddTypeHandler(new DbNameEnumHandler<CustomerStatus>());
+```
+
+Every field on the enum must have a `[DbName]` attribute. The handler builds a bidirectional lookup at construction time and throws `InvalidOperationException` if any field is missing the attribute.
+
+Once registered, enum values are handled automatically in queries:
+
+```csharp
+// Writing  - the handler converts CustomerStatus.Active to "active"
+await connection.ExecuteAsync(
+    "INSERT INTO customer (name, status) VALUES (@name, @status::customer_status)",
+    new { name = "Acme", status = CustomerStatus.Active },
+    transaction);
+
+// Reading  - the handler converts "active" back to CustomerStatus.Active
+Customer? customer = await connection.QuerySingleOrDefaultAsync<Customer>(
+    "SELECT name, status FROM customer WHERE id = @id",
+    new { id },
+    transaction);
+```
+
+### Custom Type Handlers
+
+For non-enum types, subclass `TypeHandler<T>` to control how values are written to and read from the database. For example, a handler that stores objects as JSON in a text column:
+
+```csharp
+public class JsonTypeHandler<T> : TypeHandler<T>
+{
+    public override void SetValue(IDbDataParameter parameter, T value)
     {
-        parameter.Value = value switch
-        {
-            CustomerStatus.Active => "active",
-            CustomerStatus.Inactive => "inactive",
-            _ => throw new ArgumentOutOfRangeException()
-        };
+        parameter.Value = JsonSerializer.Serialize(value);
         parameter.DbType = DbType.String;
     }
 
-    public override CustomerStatus Parse(object value)
+    public override T? Parse(object value)
     {
-        return value.ToString() switch
-        {
-            "active" => CustomerStatus.Active,
-            "inactive" => CustomerStatus.Inactive,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+        return JsonSerializer.Deserialize<T>(value.ToString()!);
     }
 }
 ```
 
-### Registering a Handler
-
 ```csharp
-TypeHandlerRegistry.AddTypeHandler(new CustomerStatusHandler());
+TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Address>());
 ```
 
-Once registered, the handler is used automatically for both parameter binding (writes) and result deserialization (reads).
+Once registered, handlers are used automatically for both parameter binding (writes) and result deserialization (reads).
 
 ## Column Mapping
 
-Result columns are mapped to entity properties by name (case-insensitive). Use SQL column aliases to match property names:
+Result columns are mapped to entity properties by name using case-insensitive matching. The following column naming conventions all work automatically:
+
+| SQL column | Entity property | How it matches |
+|---|---|---|
+| `Name` | `Name` | Direct match |
+| `name` | `Name` | Case-insensitive (PostgreSQL default) |
+| `created_at` | `CreatedAt` | Snake_case to PascalCase conversion |
+| `is_active` | `IsActive` | Snake_case to PascalCase conversion |
+
+Direct matching is tried first. Snake_case conversion only runs when a column doesn't match any property directly, so there's no overhead for queries that already use aliases or matching names.
+
+This means you can write natural SQL without `AS` aliases:
 
 ```csharp
-// Maps columns to PascalCase properties
-string query = @"
-    SELECT
-        id AS Id,
-        first_name AS FirstName,
-        created_at AS CreatedAt
-    FROM customer";
+string query = "SELECT id, first_name, created_at FROM customer";
 ```
+
+Explicit aliases still work and can be mixed with automatic mapping in the same query:
+
+```csharp
+string query = "SELECT id, first_name, created_at AS CreatedAt FROM customer";
+```
+
+Columns that don't match any property are silently skipped.
+
+## Constructor-Based Entity Creation
+
+With parameterless constructors, non-nullable reference type properties need workarounds like `= string.Empty` to avoid NRT warnings, even though the value always comes from the database:
+
+```csharp
+// Parameterless constructor - works, but NRT is awkward
+public class Customer
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;  // has to have a default
+    public string? Description { get; set; }
+}
+```
+
+Constructor-based entities avoid this. Properties can be get-only and non-nullable without workarounds:
+
+```csharp
+public class Customer
+{
+    public Guid Id { get; }
+    public string Name { get; }
+    public int? Value { get; }
+
+    public Customer(Guid id, string name, int? value)
+    {
+        Id = id;
+        Name = name;
+        Value = value;
+    }
+}
+```
+
+Constructor parameters are matched to columns by name (case-insensitive, with snake_case support). When a column is missing from the result set, the parameter receives its default value (`null` for reference types, `0`/`false`/etc. for value types).
+
+Hybrid entities are also supported - use a constructor for required properties and settable properties for optional ones:
+
+```csharp
+public class Customer
+{
+    public Guid Id { get; }
+    public string Name { get; }
+    public string? Description { get; set; }
+    public bool IsActive { get; set; }
+
+    public Customer(Guid id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+}
+```
+
+Both styles work. The mapper checks whether the entity type has a parameterless constructor and chooses the appropriate strategy. When multiple public constructors exist, the one with the most parameters is chosen.
 
 ## Design Decisions
 
-- **Reflection, not IL emit** &mdash; Uses reflection for parameter binding and result deserialization. The performance difference is negligible when database I/O dominates.
-- **Async only** &mdash; No synchronous methods. All database operations should be async.
-- **Same method signatures as Dapper** &mdash; Makes migration a `using` statement swap.
-- **No external dependencies** &mdash; Only depends on `System.Data.Common` from the framework.
+- **Compiled expression delegates**  - Property setters and constructors are compiled once via expression trees and cached, replacing `Activator.CreateInstance`, `PropertyInfo.SetValue`, and `ConstructorInfo.Invoke` with near-native speed delegates.
+- **Async only**  - No synchronous methods. All database operations should be async.
+- **Same method signatures as Dapper**  - Makes migration a `using` statement swap.
+- **No external dependencies**  - Only depends on `System.Data.Common` from the framework.

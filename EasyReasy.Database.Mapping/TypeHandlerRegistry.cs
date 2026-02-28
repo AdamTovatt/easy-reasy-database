@@ -10,6 +10,13 @@ namespace EasyReasy.Database.Mapping
     public static class TypeHandlerRegistry
     {
         private static readonly ConcurrentDictionary<Type, ITypeHandler> Handlers = new();
+        private static volatile int _version;
+
+        /// <summary>
+        /// Monotonically increasing version number, incremented whenever handlers are
+        /// added or removed. Used by RowDeserializer to invalidate cached mappings.
+        /// </summary>
+        internal static int Version => _version;
 
         /// <summary>
         /// Registers a strongly-typed handler for type <typeparamref name="T"/>.
@@ -19,6 +26,7 @@ namespace EasyReasy.Database.Mapping
         public static void AddTypeHandler<T>(TypeHandler<T> handler)
         {
             Handlers[typeof(T)] = handler;
+            Interlocked.Increment(ref _version);
         }
 
         /// <summary>
@@ -29,6 +37,7 @@ namespace EasyReasy.Database.Mapping
         public static void AddTypeHandler(Type type, ITypeHandler handler)
         {
             Handlers[type] = handler;
+            Interlocked.Increment(ref _version);
         }
 
         /// <summary>
@@ -48,6 +57,7 @@ namespace EasyReasy.Database.Mapping
         internal static void Clear()
         {
             Handlers.Clear();
+            Interlocked.Increment(ref _version);
         }
     }
 }

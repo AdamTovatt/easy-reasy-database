@@ -41,6 +41,11 @@ namespace EasyReasy.Database.Mapping
 
         public override T Parse(object value)
         {
+            if (value is T enumValue)
+            {
+                return enumValue;
+            }
+
             return _stringToEnum[value.ToString()!];
         }
     }
