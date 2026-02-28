@@ -4,10 +4,36 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Title>EasyReasy.Database.Mapping</Title>
+    <Authors>Adam Tovatt</Authors>
+    <Description>Lightweight database mapping library for .NET. Maps DbDataReader rows to CLR objects with automatic snake_case to PascalCase column mapping, constructor-based entity creation, custom type handlers, and enum support.</Description>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/AdamTovatt/easy-reasy-database</PackageProjectUrl>
+    <PackageIcon>BaseIcon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/AdamTovatt/easy-reasy-database</RepositoryUrl>
+    <PackageTags>dapper;mapper;improved-dapper;enum;constructor;</PackageTags>
+    <IncludeSymbols>True</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="EasyReasy.Database.Mapping.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Art\BaseIcon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

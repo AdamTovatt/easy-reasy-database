@@ -615,5 +615,153 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         #endregion
+
+        #region QueryFirstOrDefaultAsync
+
+        [Fact]
+        public async Task QueryFirstOrDefaultAsync_OneRow_ReturnsEntity()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "first_test", value = 11 },
+                _transaction);
+
+            MappingTestEntity? result = await _connection.QueryFirstOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name",
+                new { name = "first_test" },
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("first_test", result.Name);
+            Assert.Equal(11, result.Value);
+        }
+
+        [Fact]
+        public async Task QueryFirstOrDefaultAsync_NoRows_ReturnsNull()
+        {
+            MappingTestEntity? result = await _connection.QueryFirstOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name FROM mapping_test WHERE name = @name",
+                new { name = "nonexistent" },
+                _transaction);
+
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task QueryFirstOrDefaultAsync_MultipleRows_ReturnsFirstWithoutThrowing()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "first_multi", value = 1 },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "first_multi", value = 2 },
+                _transaction);
+
+            MappingTestEntity? result = await _connection.QueryFirstOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name ORDER BY value",
+                new { name = "first_multi" },
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("first_multi", result.Name);
+            Assert.Equal(1, result.Value);
+        }
+
+        [Fact]
+        public async Task QueryFirstOrDefaultAsync_ScalarNoRows_ReturnsDefault()
+        {
+            string? result = await _connection.QueryFirstOrDefaultAsync<string>(
+                "SELECT name FROM mapping_test WHERE name = @name",
+                new { name = "nonexistent" },
+                _transaction);
+
+            Assert.Null(result);
+        }
+
+        #endregion
+
+        #region DynamicParameters
+
+        [Fact]
+        public async Task DynamicParameters_Insert_BindsCorrectly()
+        {
+            DynamicParameters parameters = new DynamicParameters();
+            parameters.Add("name", "dynamic_test");
+            parameters.Add("value", 42);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                parameters,
+                _transaction);
+
+            MappingTestEntity? result = await _connection.QuerySingleOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name",
+                new { name = "dynamic_test" },
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("dynamic_test", result.Name);
+            Assert.Equal(42, result.Value);
+        }
+
+        [Fact]
+        public async Task DynamicParameters_BulkInsert_BindsAllParameters()
+        {
+            string[] names = { "bulk_a", "bulk_b", "bulk_c" };
+            DynamicParameters parameters = new DynamicParameters();
+            List<string> valueClauses = new();
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                string nameParam = $"name_{i}";
+                string valueParam = $"value_{i}";
+                parameters.Add(nameParam, names[i]);
+                parameters.Add(valueParam, i + 1);
+                valueClauses.Add($"(@{nameParam}, @{valueParam})");
+            }
+
+            string sql = $"INSERT INTO mapping_test (name, value) VALUES {string.Join(", ", valueClauses)}";
+            await _connection.ExecuteAsync(sql, parameters, _transaction);
+
+            IEnumerable<MappingTestEntity> results = await _connection.QueryAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name LIKE 'bulk_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<MappingTestEntity> list = results.ToList();
+            Assert.Equal(3, list.Count);
+            Assert.Equal("bulk_a", list[0].Name);
+            Assert.Equal(1, list[0].Value);
+            Assert.Equal("bulk_b", list[1].Name);
+            Assert.Equal(2, list[1].Value);
+            Assert.Equal("bulk_c", list[2].Name);
+            Assert.Equal(3, list[2].Value);
+        }
+
+        [Fact]
+        public async Task DynamicParameters_NullValue_InsertsNull()
+        {
+            DynamicParameters parameters = new DynamicParameters();
+            parameters.Add("name", "dynamic_null");
+            parameters.Add("description", null);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, description) VALUES (@name, @description)",
+                parameters,
+                _transaction);
+
+            MappingTestEntity? result = await _connection.QuerySingleOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, description AS Description FROM mapping_test WHERE name = @name",
+                new { name = "dynamic_null" },
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Null(result.Description);
+        }
+
+        #endregion
     }
 }
+

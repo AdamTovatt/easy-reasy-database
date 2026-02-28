@@ -36,7 +36,7 @@ public class CustomerRepository : RepositoryBase, ICustomerRepository
 
 ## API Reference
 
-All methods are async extension methods on `DbConnection`. Parameters are passed as anonymous objects.
+All methods are async extension methods on `DbConnection`. Parameters are passed as anonymous objects or `DynamicParameters`.
 
 ### QueryAsync
 
@@ -68,6 +68,17 @@ Returns one row or `default` if no rows. Throws `InvalidOperationException` if m
 Customer? customer = await connection.QuerySingleOrDefaultAsync<Customer>(
     "SELECT id, name FROM customer WHERE id = @id",
     new { id },
+    transaction);
+```
+
+### QueryFirstOrDefaultAsync
+
+Returns the first row or `default` if no rows. Unlike `QuerySingleOrDefaultAsync`, does not throw when multiple rows are returned.
+
+```csharp
+Customer? customer = await connection.QueryFirstOrDefaultAsync<Customer>(
+    "SELECT id, name FROM customer WHERE active = @active",
+    new { active = true },
     transaction);
 ```
 

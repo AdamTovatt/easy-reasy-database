@@ -21,6 +21,12 @@ namespace EasyReasy.Database.Mapping
                 return;
             }
 
+            if (param is DynamicParameters dynamicParams)
+            {
+                BindDynamicParameters(command, dynamicParams);
+                return;
+            }
+
             PropertyInfo[] properties = ReflectionCache.GetProperties(param.GetType());
 
             foreach (PropertyInfo property in properties)
@@ -56,6 +62,41 @@ namespace EasyReasy.Database.Mapping
                 }
 
                 // Default: set the value directly, letting the ADO.NET provider handle conversion
+                dbParameter.Value = value;
+                command.Parameters.Add(dbParameter);
+            }
+        }
+
+        private static void BindDynamicParameters(DbCommand command, DynamicParameters dynamicParams)
+        {
+            foreach ((string name, object? value) in dynamicParams.GetParameters())
+            {
+                DbParameter dbParameter = command.CreateParameter();
+                dbParameter.ParameterName = name;
+
+                if (value == null)
+                {
+                    dbParameter.Value = DBNull.Value;
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
+                Type valueType = value.GetType();
+
+                if (TypeHandlerRegistry.TryGetHandler(valueType, out ITypeHandler? handler) && handler != null)
+                {
+                    handler.SetValue(dbParameter, value);
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
+                if (valueType.IsArray && valueType != typeof(byte[]))
+                {
+                    dbParameter.Value = value;
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
                 dbParameter.Value = value;
                 command.Parameters.Add(dbParameter);
             }

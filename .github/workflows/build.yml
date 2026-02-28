@@ -18,10 +18,18 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+    - name: Setup Postgres
+      run: chmod +x setup_test_db.sh && ./setup_test_db.sh
+    - name: Wait for Postgres
+      run: |
+        until docker exec postgres-test pg_isready -U postgres; do
+          echo "Waiting for postgres..."
+          sleep 2
+        done
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
     - name: Test
-      run: dotnet test --no-build --verbosity normal --filter "Category!=Integration"
+      run: dotnet test --no-build --verbosity normal
 

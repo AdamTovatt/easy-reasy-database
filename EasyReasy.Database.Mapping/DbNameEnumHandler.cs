@@ -9,8 +9,8 @@ namespace EasyReasy.Database.Mapping
     /// <typeparam name="T">The enum type to handle.</typeparam>
     public class DbNameEnumHandler<T> : TypeHandler<T> where T : struct, Enum
     {
-        private readonly Dictionary<T, string> _enumToString;
-        private readonly Dictionary<string, T> _stringToEnum;
+        protected readonly Dictionary<T, string> _enumToString;
+        protected readonly Dictionary<string, T> _stringToEnum;
 
         public DbNameEnumHandler()
         {

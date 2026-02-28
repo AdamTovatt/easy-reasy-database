@@ -136,6 +136,40 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
+        /// Executes a query and returns the first row deserialized into <typeparamref name="T"/>,
+        /// or the default value if no rows are returned. Does not throw if multiple rows are returned.
+        /// </summary>
+        /// <typeparam name="T">The entity type to deserialize.</typeparam>
+        /// <param name="connection">The database connection.</param>
+        /// <param name="sql">The SQL query to execute.</param>
+        /// <param name="param">An anonymous object whose properties are used as query parameters.</param>
+        /// <param name="transaction">An optional transaction to associate with the command.</param>
+        /// <returns>The first deserialized entity, or default if no rows.</returns>
+        public static async Task<T?> QueryFirstOrDefaultAsync<T>(
+            this DbConnection connection,
+            string sql,
+            object? param = null,
+            DbTransaction? transaction = null)
+        {
+            await EnsureOpenAsync(connection);
+
+            await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
+            await using (DbDataReader reader = await command.ExecuteReaderAsync())
+            {
+                Type targetType = typeof(T);
+
+                if (IsSimpleType(targetType))
+                {
+                    return await RowDeserializer.ReadScalarAsync<T>(reader);
+                }
+
+                List<T> results = await RowDeserializer.DeserializeAsync<T>(reader);
+
+                return results.Count == 0 ? default : results[0];
+            }
+        }
+
+        /// <summary>
         /// Executes a non-query command (INSERT, UPDATE, DELETE) and returns the number of rows affected.
         /// </summary>
         /// <param name="connection">The database connection.</param>
