@@ -18,10 +18,12 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+	<VersionPrefix>1.0.1</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="EasyReasy.Database.Mapping.Tests" />
+    <InternalsVisibleTo Include="EasyReasy.Database.Mapping.Npgsql.Tests" />
   </ItemGroup>
 
   <ItemGroup>

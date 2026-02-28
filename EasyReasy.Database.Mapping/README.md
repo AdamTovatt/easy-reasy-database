@@ -267,6 +267,26 @@ public class Customer
 
 Both styles work. The mapper checks whether the entity type has a parameterless constructor and chooses the appropriate strategy. When multiple public constructors exist, the one with the most parameters is chosen.
 
+## Supported Property Types
+
+The following types are supported for entity properties, constructor parameters, and scalar queries:
+
+| Type | PostgreSQL column | Notes |
+|---|---|---|
+| `string` | `text`, `varchar` | |
+| `int`, `long`, `short`, `byte` | `integer`, `bigint`, `smallint` | |
+| `float`, `double` | `real`, `double precision` | |
+| `decimal` | `numeric`, `decimal` | |
+| `bool` | `boolean` | |
+| `Guid` | `uuid` | |
+| `DateTime` | `timestamp`, `timestamptz` | |
+| `DateTimeOffset` | `timestamptz` | |
+| `DateOnly` | `date` | Read via `GetFieldValue<DateOnly>()` for correct Npgsql handling |
+| `TimeOnly` | `time` | Read via `GetFieldValue<TimeOnly>()` for correct Npgsql handling |
+| Enum types | Npgsql-mapped enums | Works with both `MapEnum<T>()` and custom type handlers |
+
+All types also work as `Nullable<T>` (e.g. `int?`, `DateOnly?`). NULL database values map to `null` for nullable properties and are skipped for non-nullable ones.
+
 ## Design Decisions
 
 - **Compiled expression delegates**  - Property setters and constructors are compiled once via expression trees and cached, replacing `Activator.CreateInstance`, `PropertyInfo.SetValue`, and `ConstructorInfo.Invoke` with near-native speed delegates.
