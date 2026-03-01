@@ -4,7 +4,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.svg)](https://www.nuget.org/packages/EasyReasy.Database/)
 
-> **Note**: Some examples in this guide use Dapper (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`) for query execution, but Dapper is **not a dependency** of this library. This library is database-agnostic and works with any ADO.NET-compatible database provider and any query library you choose to use.
+> **Note**: The query examples in this guide use [EasyReasy.Database.Mapping](../EasyReasy.Database.Mapping/README.md) for query execution (e.g., `QueryAsync`, `QuerySingleOrDefaultAsync`). EasyReasy.Database.Mapping is a lightweight Dapper replacement with the same method signatures, but you can use any ADO.NET-compatible query library — this library is database-agnostic.
 
 This file provides an overview of how EasyReasy.Database can be use from two points of view: service developers and repository developers.
 
@@ -174,7 +174,7 @@ public class CustomerRepository : RepositoryBase, ICustomerRepository
 protected async Task<T> UseSessionAsync<T>(Func<IDbSession, Task<T>> action, IDbSession? session = null)
 ```
 
-**Always pass `dbSession.Transaction` to your query library** - ensures query participates in transaction if one exists. For example, with Dapper:
+**Always pass `dbSession.Transaction` to your query library** - ensures query participates in transaction if one exists:
 ```csharp
 await dbSession.Connection.QueryAsync<T>(query, parameters, transaction: dbSession.Transaction);
 ```
