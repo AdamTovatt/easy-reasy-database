@@ -127,7 +127,10 @@ Register custom type handlers to control how values are read from and written to
 
 Use the `[DbName]` attribute on enum fields and register a `DbNameEnumHandler<T>` to automatically map between enum values and their database string representations.
 
+For databases that use enum types (e.g. PostgreSQL), you can also add the `[DbEnum]` attribute on the enum type itself to specify the database enum type name. This is used by provider-specific extensions like `MapDbNameEnum` in [EasyReasy.Database.Mapping.Npgsql](../EasyReasy.Database.Mapping.Npgsql/README.md) to simplify registration.
+
 ```csharp
+[DbEnum("customer_status")]  // optional (but recommended) - database enum type name, used by provider-specific extensions (like EasyReasy.Database.Mapping.Npgsql)
 public enum CustomerStatus
 {
     [DbName("active")]

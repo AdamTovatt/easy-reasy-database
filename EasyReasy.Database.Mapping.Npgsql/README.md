@@ -35,3 +35,32 @@ await connection.ExecuteAsync(
     "INSERT INTO users (name, status) VALUES (@name, @status)",
     new { name = "Alice", status = UserStatus.Active });
 ```
+
+## Recommended: `MapDbNameEnum<T>()`
+
+When using PostgreSQL enum types, you need two registrations: Npgsql's `MapEnum` (so Npgsql recognizes the type) and a `NpgsqlDbNameEnumHandler` (so EasyReasy maps values via `[DbName]` attributes). The `MapDbNameEnum<T>()` extension method on `NpgsqlDataSourceBuilder` does both in one call, reading the type name from a `[DbEnum]` attribute on the enum:
+
+```csharp
+[DbEnum("user_status")]
+public enum UserStatus
+{
+    [DbName("active")]
+    Active,
+
+    [DbName("inactive")]
+    Inactive
+}
+```
+
+```csharp
+// One call registers both MapEnum and NpgsqlDbNameEnumHandler
+IDataSourceFactory factory = new NpgsqlDataSourceFactory(builder =>
+{
+    builder.MapDbNameEnum<UserStatus>();
+});
+```
+
+This is the recommended approach because:
+- The database type name is defined once on the enum, not duplicated across registration calls
+- It ensures both `MapEnum` and the type handler are always registered together — forgetting either one causes hard-to-debug errors
+- `MapEnum` is required by Npgsql 10+ for custom enum types; `MapDbNameEnum` handles this automatically
