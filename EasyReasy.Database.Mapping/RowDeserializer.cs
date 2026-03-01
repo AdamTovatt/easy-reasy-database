@@ -129,7 +129,9 @@ namespace EasyReasy.Database.Mapping
             switch (meta.Kind)
             {
                 case ColumnKind.Handler:
-                    object rawValue = reader.GetValue(meta.Ordinal);
+                    object rawValue = meta.UnderlyingType.IsEnum
+                        ? reader.GetString(meta.Ordinal)
+                        : reader.GetValue(meta.Ordinal);
                     return meta.Handler!.Parse(meta.UnderlyingType, rawValue)!;
 
                 case ColumnKind.Enum:
