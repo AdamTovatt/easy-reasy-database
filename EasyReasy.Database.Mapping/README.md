@@ -283,7 +283,7 @@ The following types are supported for entity properties, constructor parameters,
 | `bool` | `boolean` | |
 | `Guid` | `uuid` | |
 | `DateTime` | `timestamp`, `timestamptz` | |
-| `DateTimeOffset` | `timestamptz` | |
+| `DateTimeOffset` | `timestamptz` | Handles Npgsql returning `DateTime` (Kind=Utc) for `timestamptz` columns |
 | `DateOnly` | `date` | Read via `GetFieldValue<DateOnly>()` for correct Npgsql handling |
 | `TimeOnly` | `time` | Read via `GetFieldValue<TimeOnly>()` for correct Npgsql handling |
 | Enum types | Npgsql-mapped enums | Works with both `MapEnum<T>()` and custom type handlers |

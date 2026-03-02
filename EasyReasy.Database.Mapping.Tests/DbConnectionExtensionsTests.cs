@@ -762,6 +762,42 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         #endregion
+
+        #region DateTimeOffset Mapping
+
+        [Fact]
+        public async Task QuerySingleAsync_TimestamptzColumn_MapsToDateTimeOffset()
+        {
+            DateTimeOffsetMappingTestEntity result = await _connection.QuerySingleAsync<DateTimeOffsetMappingTestEntity>(
+                @"INSERT INTO mapping_test (name)
+                  VALUES (@name)
+                  RETURNING id AS Id, name AS Name, created_at AS CreatedAt",
+                new { name = "datetimeoffset_test" },
+                _transaction);
+
+            Assert.NotEqual(Guid.Empty, result.Id);
+            Assert.Equal("datetimeoffset_test", result.Name);
+            Assert.True(result.CreatedAt > DateTimeOffset.MinValue);
+            Assert.Equal(TimeSpan.Zero, result.CreatedAt.Offset);
+        }
+
+        [Fact]
+        public async Task QuerySingleOrDefaultAsync_TimestamptzColumn_MapsToNullableDateTimeOffset()
+        {
+            NullableDateTimeOffsetEntity? result = await _connection.QuerySingleOrDefaultAsync<NullableDateTimeOffsetEntity>(
+                @"INSERT INTO mapping_test (name)
+                  VALUES (@name)
+                  RETURNING id AS Id, name AS Name, created_at AS CreatedAt",
+                new { name = "nullable_dto_test" },
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.True(result.CreatedAt.HasValue);
+            Assert.True(result.CreatedAt!.Value > DateTimeOffset.MinValue);
+        }
+
+        #endregion
     }
+
 }
 

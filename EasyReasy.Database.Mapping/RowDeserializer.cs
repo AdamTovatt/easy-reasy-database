@@ -139,6 +139,20 @@ namespace EasyReasy.Database.Mapping
                 case ColumnKind.TimeOnly:
                     return ReadFieldValue(reader, meta.Ordinal, meta.UnderlyingType);
 
+                case ColumnKind.DateTimeOffset:
+                    object dtValue = reader.GetValue(meta.Ordinal);
+                    if (dtValue is DateTimeOffset)
+                    {
+                        return dtValue;
+                    }
+                    if (dtValue is DateTime dt)
+                    {
+                        return new DateTimeOffset(dt.Kind == DateTimeKind.Unspecified
+                            ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+                            : dt);
+                    }
+                    return Convert.ChangeType(dtValue, meta.UnderlyingType);
+
                 default:
                     object value = reader.GetValue(meta.Ordinal);
                     if (value.GetType() == meta.UnderlyingType)
@@ -417,6 +431,11 @@ namespace EasyReasy.Database.Mapping
                 return new ColumnMeta(ordinal, propertyType, underlyingType, ColumnKind.TimeOnly, null);
             }
 
+            if (underlyingType == typeof(DateTimeOffset))
+            {
+                return new ColumnMeta(ordinal, propertyType, underlyingType, ColumnKind.DateTimeOffset, null);
+            }
+
             return new ColumnMeta(ordinal, propertyType, underlyingType, ColumnKind.Default, null);
         }
     }
@@ -430,7 +449,8 @@ namespace EasyReasy.Database.Mapping
         Handler,
         Enum,
         DateOnly,
-        TimeOnly
+        TimeOnly,
+        DateTimeOffset
     }
 
     /// <summary>
