@@ -27,6 +27,12 @@ namespace EasyReasy.Database.Mapping
                 return;
             }
 
+            if (param is IDictionary<string, object> dictionary)
+            {
+                BindDictionary(command, dictionary);
+                return;
+            }
+
             PropertyInfo[] properties = ReflectionCache.GetProperties(param.GetType());
 
             foreach (PropertyInfo property in properties)
@@ -63,6 +69,41 @@ namespace EasyReasy.Database.Mapping
 
                 // Default: set the value directly, letting the ADO.NET provider handle conversion
                 dbParameter.Value = value;
+                command.Parameters.Add(dbParameter);
+            }
+        }
+
+        private static void BindDictionary(DbCommand command, IDictionary<string, object> dictionary)
+        {
+            foreach (KeyValuePair<string, object> entry in dictionary)
+            {
+                DbParameter dbParameter = command.CreateParameter();
+                dbParameter.ParameterName = entry.Key;
+
+                if (entry.Value == null)
+                {
+                    dbParameter.Value = DBNull.Value;
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
+                Type valueType = entry.Value.GetType();
+
+                if (TypeHandlerRegistry.TryGetHandler(valueType, out ITypeHandler? handler) && handler != null)
+                {
+                    handler.SetValue(dbParameter, entry.Value);
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
+                if (valueType.IsArray && valueType != typeof(byte[]))
+                {
+                    dbParameter.Value = entry.Value;
+                    command.Parameters.Add(dbParameter);
+                    continue;
+                }
+
+                dbParameter.Value = entry.Value;
                 command.Parameters.Add(dbParameter);
             }
         }

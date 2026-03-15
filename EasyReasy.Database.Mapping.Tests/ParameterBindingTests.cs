@@ -131,5 +131,57 @@ namespace EasyReasy.Database.Mapping.Tests
 
             Assert.Equal(1L, count);
         }
+
+        [Fact]
+        public async Task DictionaryParameter_BindsDynamicParameters()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "dict_test_a", value = 10 },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "dict_test_b", value = 20 },
+                _transaction);
+
+            Dictionary<string, object> parameters = new()
+            {
+                ["name"] = "dict_test_a"
+            };
+
+            MappingTestEntity? result = await _connection.QuerySingleOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name",
+                parameters,
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("dict_test_a", result.Name);
+            Assert.Equal(10, result.Value);
+        }
+
+        [Fact]
+        public async Task DictionaryParameter_MultipleKeys_BindsAll()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "dict_multi", value = 99 },
+                _transaction);
+
+            Dictionary<string, object> parameters = new()
+            {
+                ["name"] = "dict_multi",
+                ["value"] = 99
+            };
+
+            MappingTestEntity? result = await _connection.QuerySingleOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name AND value = @value",
+                parameters,
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("dict_multi", result.Name);
+            Assert.Equal(99, result.Value);
+        }
     }
 }
