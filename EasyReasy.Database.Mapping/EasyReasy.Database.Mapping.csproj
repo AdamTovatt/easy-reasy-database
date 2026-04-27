@@ -12,7 +12,7 @@
     <PackageIcon>BaseIcon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/AdamTovatt/easy-reasy-database</RepositoryUrl>
-    <PackageTags>dapper;mapper;improved-dapper;enum;constructor;</PackageTags>
+    <PackageTags>dapper;mapper;improved-dapper;enum;constructor;json;polymorphic;jsonb;</PackageTags>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

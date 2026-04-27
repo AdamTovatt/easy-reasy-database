@@ -189,6 +189,49 @@ TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Address>());
 
 Once registered, handlers are used automatically for both parameter binding (writes) and result deserialization (reads).
 
+### Polymorphic JSON (order-insensitive)
+
+`System.Text.Json`'s built-in polymorphic deserialization (`[JsonPolymorphic]` + `[JsonDerivedType]`) requires the discriminator property to be the first key in the object and throws `NotSupportedException` otherwise (see [dotnet/runtime#78338](https://github.com/dotnet/runtime/issues/78338)). PostgreSQL JSONB stores keys length-first then lexicographically, so on read-back the discriminator is often *not* first — even though it was when you serialized. Today this lurks until someone adds a property like `body`, `data`, `name`, or `tags` (≤4 chars), at which point production starts throwing.
+
+`PolymorphicJsonTypeHandler<TBase>` fixes this with one line of registration:
+
+```csharp
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(TextBlock), "text")]
+[JsonDerivedType(typeof(ImageBlock), "image")]
+public abstract class ContentBlock { /* ... */ }
+
+TypeHandlerRegistry.AddTypeHandler(new PolymorphicJsonTypeHandler<ContentBlock>());
+```
+
+`TBase` must be a reference type. If `[JsonPolymorphic]` does not specify `TypeDiscriminatorPropertyName`, the converter uses the same default as `System.Text.Json` (`"$type"`). Every `[JsonDerivedType]` must carry an explicit string or int discriminator — `[JsonDerivedType(typeof(X))]` without one is rejected at registration time with a clear error (the converter does not infer assembly-qualified-name discriminators).
+
+Reads work regardless of where the discriminator appears in the JSON. Writes still emit the discriminator first, so the output is interoperable with default `System.Text.Json` deserialization. Runtime types not declared via `[JsonDerivedType]` (e.g. grandchild subclasses) fall through to the default serializer with no discriminator written — match `System.Text.Json`'s own behavior.
+
+The handler accepts an optional `JsonSerializerOptions` for naming policies, additional converters, etc.:
+
+```csharp
+TypeHandlerRegistry.AddTypeHandler(new PolymorphicJsonTypeHandler<ContentBlock>(
+    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+```
+
+#### Standalone converter
+
+For consumers that don't use the Mapping registry — anyone with a `JsonSerializerOptions` instance — the underlying `OrderInsensitivePolymorphicJsonConverter<TBase>` can be applied directly:
+
+```csharp
+JsonSerializerOptions options = new JsonSerializerOptions();
+OrderInsensitivePolymorphicJsonConverter<ContentBlock>.Configure(options);
+
+ContentBlock? block = JsonSerializer.Deserialize<ContentBlock>(json, options);
+```
+
+`Configure` adds the converter and installs a type-info modifier that clears `JsonTypeInfo.PolymorphismOptions` for the base type — `System.Text.Json` rejects custom converters on `[JsonPolymorphic]` types because they can't participate in its built-in metadata flow, so this converter handles dispatch end-to-end. `Configure` is idempotent but not thread-safe; call it once at startup. If `options.TypeInfoResolver` is already set to a custom resolver (e.g. a source-generated `JsonSerializerContext`), `Configure` wraps it; the modifier still runs after the inner resolver returns each `JsonTypeInfo`.
+
+#### Performance
+
+The converter parses the value into a `JsonDocument` to find the discriminator anywhere in the object, adding a small constant-factor overhead vs. `System.Text.Json`'s discriminator-first happy path. For typical JSONB column values (KB-scale content blocks, file descriptions, etc.) this is microseconds — invisible. For multi-MB blobs or hot bulk-deserialization loops the cost is measurable; benchmarks live in `EasyReasy.Database.Mapping.Benchmarks` (`PolymorphicJsonBenchmarks` class) — run them on your target hardware to make decisions.
+
 ## Column Mapping
 
 Result columns are mapped to entity properties by name using case-insensitive matching. The following column naming conventions all work automatically:
