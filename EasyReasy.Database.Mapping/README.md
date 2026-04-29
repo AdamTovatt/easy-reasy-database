@@ -165,29 +165,52 @@ Customer? customer = await connection.QuerySingleOrDefaultAsync<Customer>(
 
 ### Custom Type Handlers
 
-For non-enum types, subclass `TypeHandler<T>` to control how values are written to and read from the database. For example, a handler that stores objects as JSON in a text column:
+For non-enum types, subclass `TypeHandler<T>` to control how values are written to and read from the database. For example, a handler that compresses large strings before storing them:
 
 ```csharp
-public class JsonTypeHandler<T> : TypeHandler<T>
+public class GzipStringHandler : TypeHandler<string>
 {
-    public override void SetValue(IDbDataParameter parameter, T value)
+    public override void SetValue(IDbDataParameter parameter, string value)
     {
-        parameter.Value = JsonSerializer.Serialize(value);
+        parameter.Value = Compress(value);   // returns a base64 string
         parameter.DbType = DbType.String;
     }
 
-    public override T? Parse(object value)
+    public override string? Parse(object value)
     {
-        return JsonSerializer.Deserialize<T>(value.ToString()!);
+        return Decompress((string)value);
     }
 }
 ```
 
 ```csharp
-TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Address>());
+TypeHandlerRegistry.AddTypeHandler(new GzipStringHandler());
 ```
 
-Once registered, handlers are used automatically for both parameter binding (writes) and result deserialization (reads).
+Once registered, handlers are used automatically for both parameter binding (writes) and result deserialization (reads). For JSON-backed columns specifically, the library ships built-in handlers — see [JSON columns](#json-columns) below.
+
+### JSON columns
+
+Two built-in handlers cover persisting CLR objects in JSON or JSONB columns:
+
+- `JsonTypeHandler<T>` — for plain types (POCOs, records, dictionaries, lists, anything that round-trips through `JsonSerializer` with default behavior).
+- `PolymorphicJsonTypeHandler<TBase>` — for `[JsonPolymorphic]` hierarchies; additionally handles the JSONB key-reorder discriminator issue described in [Polymorphic JSON (order-insensitive)](#polymorphic-json-order-insensitive) below.
+
+```csharp
+TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Address>());
+TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Dictionary<string, string>>());
+```
+
+Both handlers accept an optional `JsonSerializerOptions` for naming policies, additional converters, etc.:
+
+```csharp
+JsonSerializerOptions options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+TypeHandlerRegistry.AddTypeHandler(new JsonTypeHandler<Address>(options));
+```
+
+`JsonTypeHandler<T>` uses the supplied options instance as-is — no internal copy or freeze — so caller mutations after construction take effect on subsequent reads/writes. (`PolymorphicJsonTypeHandler<TBase>` copies and freezes its options because the polymorphism setup is fragile; see the next section.)
+
+When reading, columns must be cast to text (`column::text AS column`) so the handler receives a JSON string — the row deserializer dispatches the registered handler on the property's CLR type and feeds it the column value.
 
 ### Polymorphic JSON (order-insensitive)
 
