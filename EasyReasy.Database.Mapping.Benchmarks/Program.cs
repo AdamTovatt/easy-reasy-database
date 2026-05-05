@@ -15,4 +15,12 @@ if (!File.Exists(variablesFilePath))
 EnvironmentVariableHelper.LoadVariablesFromFile(variablesFilePath);
 EnvironmentVariableHelper.ValidateVariableNamesIn(typeof(EnvironmentVariables));
 
-BenchmarkRunner.Run<QueryBenchmarks>();
+// Multiple benchmark sets live in this assembly — use BenchmarkSwitcher so users can pick.
+// No args: interactive console picker.
+// Run all sets: dotnet run -c Release -- --filter '*'
+// Run one set:  dotnet run -c Release -- --filter '*PolymorphicJson*'
+BenchmarkSwitcher.FromTypes(new[]
+{
+    typeof(QueryBenchmarks),
+    typeof(PolymorphicJsonBenchmarks),
+}).Run(args);
