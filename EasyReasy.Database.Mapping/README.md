@@ -36,7 +36,7 @@ public class CustomerRepository : RepositoryBase, ICustomerRepository
 
 ## API Reference
 
-All methods are async extension methods on `DbConnection`. Parameters are passed as anonymous objects or `DynamicParameters`.
+All methods are async extension methods on `DbConnection`. Parameters are passed as anonymous objects, `DynamicParameters`, or any `IDictionary` with string keys (e.g. `Dictionary<string, object?>`).
 
 ### QueryAsync
 
@@ -355,6 +355,8 @@ The following types are supported for entity properties, constructor parameters,
 | Enum types | Npgsql-mapped enums | Works with both `MapEnum<T>()` and custom type handlers |
 
 All types also work as `Nullable<T>` (e.g. `int?`, `DateOnly?`). NULL database values map to `null` for nullable properties and are skipped for non-nullable ones.
+
+For **scalar queries** (`QueryAsync<int>`, `QuerySingleAsync<Guid>`, etc.) the rule is stricter: a NULL column value throws `InvalidCastException` when `T` is a non-nullable value type, rather than silently returning the type's default (e.g. `Guid.Empty` or `0`). Use `T?` (e.g. `QueryAsync<int?>`) when the column can be NULL.
 
 ## Design Decisions
 

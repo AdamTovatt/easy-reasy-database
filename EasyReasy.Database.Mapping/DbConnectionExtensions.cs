@@ -29,6 +29,11 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
+                if (RowDeserializer.IsSimpleType(typeof(T)))
+                {
+                    return await RowDeserializer.ReadAllScalarsAsync<T>(reader);
+                }
+
                 return await RowDeserializer.DeserializeAsync<T>(reader);
             }
         }
@@ -54,9 +59,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                Type targetType = typeof(T);
-
-                if (IsSimpleType(targetType))
+                if (RowDeserializer.IsSimpleType(typeof(T)))
                 {
                     T? result = await RowDeserializer.ReadScalarAsync<T>(reader);
 
@@ -110,9 +113,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                Type targetType = typeof(T);
-
-                if (IsSimpleType(targetType))
+                if (RowDeserializer.IsSimpleType(typeof(T)))
                 {
                     T? result = await RowDeserializer.ReadScalarAsync<T>(reader);
 
@@ -156,9 +157,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                Type targetType = typeof(T);
-
-                if (IsSimpleType(targetType))
+                if (RowDeserializer.IsSimpleType(typeof(T)))
                 {
                     return await RowDeserializer.ReadScalarAsync<T>(reader);
                 }
@@ -277,18 +276,5 @@ namespace EasyReasy.Database.Mapping
             }
         }
 
-        private static bool IsSimpleType(Type type)
-        {
-            Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
-            return underlyingType.IsPrimitive
-                || underlyingType == typeof(string)
-                || underlyingType == typeof(decimal)
-                || underlyingType == typeof(DateTime)
-                || underlyingType == typeof(DateTimeOffset)
-                || underlyingType == typeof(DateOnly)
-                || underlyingType == typeof(TimeOnly)
-                || underlyingType == typeof(Guid)
-                || underlyingType.IsEnum;
-        }
     }
 }

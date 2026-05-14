@@ -93,6 +93,230 @@ namespace EasyReasy.Database.Mapping.Tests
 
         #endregion
 
+        #region QueryAsync Scalars
+
+        [Fact]
+        public async Task QueryAsync_ScalarGuid_DoesNotReturnGuidEmptyDefault()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name) VALUES (@name)",
+                new { name = "scalar_guid_a" },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name) VALUES (@name)",
+                new { name = "scalar_guid_b" },
+                _transaction);
+
+            IEnumerable<Guid> results = await _connection.QueryAsync<Guid>(
+                "SELECT id FROM mapping_test WHERE name LIKE 'scalar_guid_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<Guid> list = results.ToList();
+            Assert.Equal(2, list.Count);
+            Assert.NotEqual(Guid.Empty, list[0]);
+            Assert.NotEqual(Guid.Empty, list[1]);
+            Assert.NotEqual(list[0], list[1]);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarInt_ReturnsValues()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "scalar_int_a", value = 10 },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "scalar_int_b", value = 20 },
+                _transaction);
+
+            IEnumerable<int> results = await _connection.QueryAsync<int>(
+                "SELECT value FROM mapping_test WHERE name LIKE 'scalar_int_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<int> list = results.ToList();
+            Assert.Equal(new[] { 10, 20 }, list);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarString_ReturnsValues()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name) VALUES (@name)",
+                new { name = "scalar_str_a" },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name) VALUES (@name)",
+                new { name = "scalar_str_b" },
+                _transaction);
+
+            IEnumerable<string> results = await _connection.QueryAsync<string>(
+                "SELECT name FROM mapping_test WHERE name LIKE 'scalar_str_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<string> list = results.ToList();
+            Assert.Equal(new[] { "scalar_str_a", "scalar_str_b" }, list);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarNullableInt_PreservesNulls()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "scalar_nullable_a", value = 1 },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, NULL)",
+                new { name = "scalar_nullable_b" },
+                _transaction);
+
+            IEnumerable<int?> results = await _connection.QueryAsync<int?>(
+                "SELECT value FROM mapping_test WHERE name LIKE 'scalar_nullable_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<int?> list = results.ToList();
+            Assert.Equal(2, list.Count);
+            Assert.Equal(1, list[0]);
+            Assert.Null(list[1]);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarNoRows_ReturnsEmpty()
+        {
+            IEnumerable<Guid> results = await _connection.QueryAsync<Guid>(
+                "SELECT id FROM mapping_test WHERE name = @name",
+                new { name = "nonexistent_scalar" },
+                _transaction);
+
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarNonNullableInt_NullColumn_Throws()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, NULL)",
+                new { name = "scalar_throw" },
+                _transaction);
+
+            await Assert.ThrowsAsync<InvalidCastException>(async () =>
+                (await _connection.QueryAsync<int>(
+                    "SELECT value FROM mapping_test WHERE name = @name",
+                    new { name = "scalar_throw" },
+                    _transaction)).ToList());
+        }
+
+        [Fact]
+        public async Task QuerySingleOrDefaultAsync_ScalarNonNullableInt_NullColumn_Throws()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, NULL)",
+                new { name = "single_scalar_throw" },
+                _transaction);
+
+            await Assert.ThrowsAsync<InvalidCastException>(async () =>
+                await _connection.QuerySingleOrDefaultAsync<int>(
+                    "SELECT value FROM mapping_test WHERE name = @name",
+                    new { name = "single_scalar_throw" },
+                    _transaction));
+        }
+
+        [Fact]
+        public async Task QuerySingleAsync_ScalarNonNullableInt_NullColumn_Throws()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, NULL)",
+                new { name = "querysingle_scalar_throw" },
+                _transaction);
+
+            await Assert.ThrowsAsync<InvalidCastException>(async () =>
+                await _connection.QuerySingleAsync<int>(
+                    "SELECT value FROM mapping_test WHERE name = @name",
+                    new { name = "querysingle_scalar_throw" },
+                    _transaction));
+        }
+
+        [Fact]
+        public async Task QueryFirstOrDefaultAsync_ScalarNonNullableInt_NullColumn_Throws()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, NULL)",
+                new { name = "first_scalar_throw" },
+                _transaction);
+
+            await Assert.ThrowsAsync<InvalidCastException>(async () =>
+                await _connection.QueryFirstOrDefaultAsync<int>(
+                    "SELECT value FROM mapping_test WHERE name = @name",
+                    new { name = "first_scalar_throw" },
+                    _transaction));
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarNpgsqlMappedEnum_ReadsViaGetFieldValue()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, status) VALUES (@name, @status::mapping_test_status)",
+                new { name = "scalar_enum_a", status = "active" },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, status) VALUES (@name, @status::mapping_test_status)",
+                new { name = "scalar_enum_b", status = "pending" },
+                _transaction);
+
+            IEnumerable<TestStatus> results = await _connection.QueryAsync<TestStatus>(
+                "SELECT status FROM mapping_test WHERE name LIKE 'scalar_enum_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<TestStatus> list = results.ToList();
+            Assert.Equal(new[] { TestStatus.Active, TestStatus.Pending }, list);
+        }
+
+        [Fact]
+        public async Task QuerySingleAsync_ScalarNpgsqlMappedEnum_ReadsViaGetFieldValue()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, status) VALUES (@name, @status::mapping_test_status)",
+                new { name = "single_scalar_enum", status = "inactive" },
+                _transaction);
+
+            TestStatus result = await _connection.QuerySingleAsync<TestStatus>(
+                "SELECT status FROM mapping_test WHERE name = @name",
+                new { name = "single_scalar_enum" },
+                _transaction);
+
+            Assert.Equal(TestStatus.Inactive, result);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarNullableNpgsqlMappedEnum_PreservesNulls()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, status) VALUES (@name, @status::mapping_test_status)",
+                new { name = "scalar_nullable_enum_a", status = "active" },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, status) VALUES (@name, NULL)",
+                new { name = "scalar_nullable_enum_b" },
+                _transaction);
+
+            IEnumerable<TestStatus?> results = await _connection.QueryAsync<TestStatus?>(
+                "SELECT status FROM mapping_test WHERE name LIKE 'scalar_nullable_enum_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<TestStatus?> list = results.ToList();
+            Assert.Equal(2, list.Count);
+            Assert.Equal(TestStatus.Active, list[0]);
+            Assert.Null(list[1]);
+        }
+
+        #endregion
+
         #region QueryAsync
 
         [Fact]

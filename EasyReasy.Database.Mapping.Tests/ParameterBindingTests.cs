@@ -161,6 +161,87 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         [Fact]
+        public async Task DictionaryParameter_NullableObjectValue_BindsAll()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "dict_nullable", value = 77 },
+                _transaction);
+
+            Dictionary<string, object?> parameters = new()
+            {
+                ["name"] = "dict_nullable",
+                ["value"] = 77,
+            };
+
+            MappingTestEntity? result = await _connection.QuerySingleOrDefaultAsync<MappingTestEntity>(
+                "SELECT name AS Name, value AS Value FROM mapping_test WHERE name = @name AND value = @value",
+                parameters,
+                _transaction);
+
+            Assert.NotNull(result);
+            Assert.Equal("dict_nullable", result.Name);
+            Assert.Equal(77, result.Value);
+        }
+
+        [Fact]
+        public async Task DictionaryParameter_TypedIntValue_BindsValue()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name = "dict_typed", value = 5 },
+                _transaction);
+
+            Dictionary<string, int> parameters = new()
+            {
+                ["value"] = 5,
+            };
+
+            int? count = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM mapping_test WHERE value = @value AND name = 'dict_typed'",
+                parameters,
+                _transaction);
+
+            Assert.Equal(1, count);
+        }
+
+        [Fact]
+        public async Task DictionaryParameter_NullValue_BindsAsDbNull()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, description) VALUES (@name, NULL)",
+                new { name = "dict_null_desc" },
+                _transaction);
+
+            Dictionary<string, object?> parameters = new()
+            {
+                ["name"] = "dict_null_desc",
+                ["description"] = null,
+            };
+
+            int? count = await _connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM mapping_test WHERE name = @name AND description IS NOT DISTINCT FROM @description",
+                parameters,
+                _transaction);
+
+            Assert.Equal(1, count);
+        }
+
+        [Fact]
+        public async Task DictionaryLikeParameter_NotImplementingIDictionary_Throws()
+        {
+            FakeReadOnlyStringDictionary parameters = new();
+
+            ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _connection.ExecuteAsync(
+                    "SELECT @name",
+                    parameters,
+                    _transaction));
+
+            Assert.Contains("does not implement IDictionary", exception.Message);
+        }
+
+        [Fact]
         public async Task DictionaryParameter_MultipleKeys_BindsAll()
         {
             await _connection.ExecuteAsync(

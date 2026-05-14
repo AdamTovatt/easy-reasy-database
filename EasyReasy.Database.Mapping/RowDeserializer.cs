@@ -5,9 +5,10 @@ using System.Reflection;
 namespace EasyReasy.Database.Mapping
 {
     /// <summary>
-    /// Maps DbDataReader rows to CLR objects using reflection. Checks TypeHandlerRegistry
-    /// for property types (including enums) before applying default conversion.
-    /// Supports automatic snake_case → PascalCase column mapping and constructor-based entity creation.
+    /// Reads <see cref="DbDataReader"/> results. For complex entity types, maps rows to CLR
+    /// objects via reflection (with TypeHandlerRegistry, snake_case → PascalCase column mapping,
+    /// and constructor-based creation). For simple/primitive types (see <see cref="IsSimpleType"/>),
+    /// reads column 0 directly via the scalar helpers.
     /// </summary>
     internal static class RowDeserializer
     {
@@ -49,7 +50,8 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Reads a single scalar value from the reader.
+        /// Reads a single scalar value from the reader. Returns default if there are no rows.
+        /// Throws if a row exists but column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type.
         /// </summary>
         internal static async Task<T?> ReadScalarAsync<T>(DbDataReader reader)
         {
@@ -58,14 +60,84 @@ namespace EasyReasy.Database.Mapping
                 return default;
             }
 
+            return ReadScalarValue<T>(reader);
+        }
+
+        /// <summary>
+        /// Reads column 0 of every row from the reader into a list of <typeparamref name="T"/>.
+        /// Throws if any row's column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type,
+        /// rather than silently producing default(T).
+        /// </summary>
+        internal static async Task<List<T>> ReadAllScalarsAsync<T>(DbDataReader reader)
+        {
+            List<T> results = new List<T>();
+
+            while (await reader.ReadAsync())
+            {
+                results.Add(ReadScalarValue<T>(reader)!);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Returns true for types that should be read as a single column rather than mapped row-to-properties.
+        /// Used by QueryAsync&lt;T&gt; / QuerySingleAsync&lt;T&gt; / QueryFirstOrDefaultAsync&lt;T&gt; to dispatch.
+        /// </summary>
+        internal static bool IsSimpleType(Type type)
+        {
+            Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
+            return underlyingType.IsPrimitive
+                || underlyingType == typeof(string)
+                || underlyingType == typeof(decimal)
+                || underlyingType == typeof(DateTime)
+                || underlyingType == typeof(DateTimeOffset)
+                || underlyingType == typeof(DateOnly)
+                || underlyingType == typeof(TimeOnly)
+                || underlyingType == typeof(Guid)
+                || underlyingType.IsEnum;
+        }
+
+        /// <summary>
+        /// Reads column 0 of the current row, routing enums through the typed reader so
+        /// Npgsql-mapped enum types resolve correctly. Throws on NULL when T cannot represent null.
+        /// </summary>
+        private static T? ReadScalarValue<T>(DbDataReader reader)
+        {
+            Type targetType = typeof(T);
+            Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+            bool canBeNull = !targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null;
+
             if (reader.IsDBNull(0))
             {
+                if (!canBeNull)
+                {
+                    throw new InvalidCastException(
+                        $"Column value is NULL but target type '{targetType}' is a non-nullable value type. " +
+                        $"Use '{underlyingType.Name}?' to allow nulls.");
+                }
+
                 return default;
             }
 
-            object value = reader.GetValue(0);
+            // String-backed enums and other handler-driven types come through TypeHandlerRegistry.
+            if (TypeHandlerRegistry.TryGetHandler(underlyingType, out ITypeHandler? handler) && handler != null)
+            {
+                object rawValue = underlyingType.IsEnum
+                    ? reader.GetString(0)
+                    : reader.GetValue(0);
+                return (T?)handler.Parse(underlyingType, rawValue);
+            }
 
-            return ConvertValue<T>(value, typeof(T));
+            // Npgsql-mapped enum types require GetFieldValue<T>; plain GetValue throws on them.
+            if (underlyingType.IsEnum)
+            {
+                object enumValue = ReadFieldValue(reader, 0, underlyingType);
+                return (T)enumValue;
+            }
+
+            object value = reader.GetValue(0);
+            return ConvertValue<T>(value, targetType);
         }
 
         /// <summary>

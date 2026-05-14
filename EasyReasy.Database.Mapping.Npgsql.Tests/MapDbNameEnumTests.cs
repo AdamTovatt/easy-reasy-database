@@ -117,6 +117,27 @@ namespace EasyReasy.Database.Mapping.Npgsql.Tests
         }
 
         [Fact]
+        public async Task QueryAsync_ScalarEnum_GoesThroughHandlerBranch()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO npgsql_mapping_test (name, status) VALUES (@name, @status)",
+                new { name = "scalar_handler_a", status = TestStatus.Active },
+                _transaction);
+
+            await _connection.ExecuteAsync(
+                "INSERT INTO npgsql_mapping_test (name, status) VALUES (@name, @status)",
+                new { name = "scalar_handler_b", status = TestStatus.Pending },
+                _transaction);
+
+            IEnumerable<TestStatus> results = await _connection.QueryAsync<TestStatus>(
+                "SELECT status FROM npgsql_mapping_test WHERE name LIKE 'scalar_handler_%' ORDER BY name",
+                transaction: _transaction);
+
+            List<TestStatus> list = results.ToList();
+            Assert.Equal(new[] { TestStatus.Active, TestStatus.Pending }, list);
+        }
+
+        [Fact]
         public void MapDbNameEnum_MissingDbEnumAttribute_ThrowsInvalidOperationException()
         {
             global::Npgsql.NpgsqlDataSourceBuilder builder = new global::Npgsql.NpgsqlDataSourceBuilder("Host=localhost");
