@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>EasyReasy.Database.Logging.Npgsql</Title>
+    <Authors>Adam Tovatt</Authors>
+    <Description>PostgreSQL fast path for EasyReasy.Database.Logging: a binary COPY sink for high-throughput bulk insert of operational log events, monthly range-partition retention, and the partitioned table DDL. Drop-in alongside the agnostic core.</Description>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/AdamTovatt/easy-reasy-database</PackageProjectUrl>
+    <PackageIcon>BaseIcon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/AdamTovatt/easy-reasy-database</RepositoryUrl>
+    <PackageTags>logging;serilog;operational-log;postgresql;npgsql;partitioning;</PackageTags>
+    <IncludeSymbols>True</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="EasyReasy.Database.Logging.Npgsql.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EasyReasy.Database.Logging\EasyReasy.Database.Logging.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database.Npgsql\EasyReasy.Database.Npgsql.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database\EasyReasy.Database.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Art\BaseIcon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
