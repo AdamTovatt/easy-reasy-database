@@ -17,6 +17,9 @@ Click the name of the library you want to read more about in the table below to 
 | [EasyReasy.Database.Testing](EasyReasy.Database.Testing/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Testing.svg)](https://www.nuget.org/packages/EasyReasy.Database.Testing/) | Testing utilities including fake database sessions for unit tests and test database management for integration tests with automatic transaction rollback. |
 | [EasyReasy.Database.Mapping](EasyReasy.Database.Mapping/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Mapping.svg)](https://www.nuget.org/packages/EasyReasy.Database.Mapping/) | Lightweight database mapping library that maps `DbDataReader` rows to CLR objects with snake_case to PascalCase column mapping, constructor-based entity creation, custom type handlers, and enum support. |
 | [EasyReasy.Database.Mapping.Npgsql](EasyReasy.Database.Mapping.Npgsql/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Mapping.Npgsql.svg)](https://www.nuget.org/packages/EasyReasy.Database.Mapping.Npgsql/) | Npgsql-specific enum handler for `EasyReasy.Database.Mapping`. Automatically sets `NpgsqlParameter.DataTypeName`, eliminating the need for `::pg_type` casts in SQL queries. |
+| [EasyReasy.Database.Logging](EasyReasy.Database.Logging/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Logging.svg)](https://www.nuget.org/packages/EasyReasy.Database.Logging/) | Database-agnostic operational logging built on Serilog. Persists structured log events to a SQL table via a batched best-effort sink, with a paginated read surface and an in-process live feed. |
+| [EasyReasy.Database.Logging.Npgsql](EasyReasy.Database.Logging.Npgsql/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Logging.Npgsql.svg)](https://www.nuget.org/packages/EasyReasy.Database.Logging.Npgsql/) | PostgreSQL fast path for `EasyReasy.Database.Logging`: a binary `COPY` sink for high-throughput bulk insert, monthly range-partition retention, and the partitioned table DDL. |
+| [EasyReasy.Database.Logging.AspNetCore](EasyReasy.Database.Logging.AspNetCore/README.md) | [![NuGet](https://img.shields.io/nuget/v/EasyReasy.Database.Logging.AspNetCore.svg)](https://www.nuget.org/packages/EasyReasy.Database.Logging.AspNetCore/) | ASP.NET Core integration for `EasyReasy.Database.Logging`: an `HttpContext` enricher attaching user id and client IP, plus opt-in admin endpoints (paginated read + Server-Sent Events live feed). |
 
 ## Publishing
 
@@ -30,6 +33,9 @@ Each package is published to NuGet by pushing a git tag of the form `<package>-v
 | EasyReasy.Database.Npgsql | `npgsql` | `EasyReasy.Database.Npgsql` | `EasyReasy.Database.Tests` |
 | EasyReasy.Database.Mapping | `mapping` | `EasyReasy.Database.Mapping` | `EasyReasy.Database.Mapping.Tests` |
 | EasyReasy.Database.Mapping.Npgsql | `mapping-npgsql` | `EasyReasy.Database.Mapping.Npgsql` | `EasyReasy.Database.Mapping.Npgsql.Tests` |
+| EasyReasy.Database.Logging | `logging` | `EasyReasy.Database.Logging` | `EasyReasy.Database.Logging.Tests` |
+| EasyReasy.Database.Logging.Npgsql | `logging-npgsql` | `EasyReasy.Database.Logging.Npgsql` | `EasyReasy.Database.Logging.Npgsql.Tests` |
+| EasyReasy.Database.Logging.AspNetCore | `logging-aspnetcore` | `EasyReasy.Database.Logging.AspNetCore` | `EasyReasy.Database.Logging.AspNetCore.Tests` |
 
 Example — publish `EasyReasy.Database.Mapping` 1.2.0:
 
