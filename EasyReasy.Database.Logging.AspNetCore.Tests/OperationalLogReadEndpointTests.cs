@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace EasyReasy.Database.Logging.AspNetCore.Tests
 {
@@ -31,32 +32,36 @@ namespace EasyReasy.Database.Logging.AspNetCore.Tests
             }
         }
 
-        private static TestServer CreateServer(IOperationalLogReadRepository repository)
+        private static async Task<IHost> CreateHostAsync(IOperationalLogReadRepository repository)
         {
-            IWebHostBuilder builder = new WebHostBuilder()
-                .ConfigureServices(services =>
+            return await new HostBuilder()
+                .ConfigureWebHost(webHost =>
                 {
-                    services.AddRouting();
-                    services.AddSingleton(repository);
-                    // The group also wires the stream route, whose broadcaster parameter must be
-                    // DI-resolvable for the group's delegates to build.
-                    services.AddSingleton<IOperationalLogBroadcaster>(new InMemoryOperationalLogBroadcaster());
+                    webHost
+                        .UseTestServer()
+                        .ConfigureServices(services =>
+                        {
+                            services.AddRouting();
+                            services.AddSingleton(repository);
+                            // The group also wires the stream route, whose broadcaster parameter must be
+                            // DI-resolvable for the group's delegates to build.
+                            services.AddSingleton<IOperationalLogBroadcaster>(new InMemoryOperationalLogBroadcaster());
+                        })
+                        .Configure(app =>
+                        {
+                            app.UseRouting();
+                            app.UseEndpoints(endpoints => endpoints.MapOperationalLogEndpoints());
+                        });
                 })
-                .Configure(app =>
-                {
-                    app.UseRouting();
-                    app.UseEndpoints(endpoints => endpoints.MapOperationalLogEndpoints());
-                });
-
-            return new TestServer(builder);
+                .StartAsync();
         }
 
         [Fact]
         public async Task Read_ClampsOversizedPerPage_AndPassesFiltersThrough()
         {
             CapturingReadRepository repository = new CapturingReadRepository();
-            using TestServer server = CreateServer(repository);
-            HttpClient client = server.CreateClient();
+            using IHost host = await CreateHostAsync(repository);
+            HttpClient client = host.GetTestClient();
 
             using HttpResponseMessage response = await client.GetAsync(
                 "/api/admin/logs/operational?perPage=1000&level=Error&sourceContext=App.Accounts&from=2024-01-01T00:00:00Z");
@@ -75,8 +80,8 @@ namespace EasyReasy.Database.Logging.AspNetCore.Tests
         public async Task Read_HonorsExplicitInBoundsPageAndPerPage()
         {
             CapturingReadRepository repository = new CapturingReadRepository();
-            using TestServer server = CreateServer(repository);
-            HttpClient client = server.CreateClient();
+            using IHost host = await CreateHostAsync(repository);
+            HttpClient client = host.GetTestClient();
 
             using HttpResponseMessage response = await client.GetAsync(
                 "/api/admin/logs/operational?page=3&perPage=25");

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace EasyReasy.Database.Logging.AspNetCore.Tests
 {
@@ -32,30 +33,34 @@ namespace EasyReasy.Database.Logging.AspNetCore.Tests
             }
         }
 
-        private static TestServer CreateServer(IOperationalLogBroadcaster broadcaster)
+        private static async Task<IHost> CreateHostAsync(IOperationalLogBroadcaster broadcaster)
         {
-            IWebHostBuilder builder = new WebHostBuilder()
-                .ConfigureServices(services =>
+            return await new HostBuilder()
+                .ConfigureWebHost(webHost =>
                 {
-                    services.AddRouting();
-                    services.AddSingleton(broadcaster);
-                    services.AddSingleton<IOperationalLogReadRepository, StubReadRepository>();
+                    webHost
+                        .UseTestServer()
+                        .ConfigureServices(services =>
+                        {
+                            services.AddRouting();
+                            services.AddSingleton(broadcaster);
+                            services.AddSingleton<IOperationalLogReadRepository, StubReadRepository>();
+                        })
+                        .Configure(app =>
+                        {
+                            app.UseRouting();
+                            app.UseEndpoints(endpoints => endpoints.MapOperationalLogEndpoints(heartbeatInterval: ShortHeartbeat));
+                        });
                 })
-                .Configure(app =>
-                {
-                    app.UseRouting();
-                    app.UseEndpoints(endpoints => endpoints.MapOperationalLogEndpoints(heartbeatInterval: ShortHeartbeat));
-                });
-
-            return new TestServer(builder);
+                .StartAsync();
         }
 
         [Fact]
         public async Task Stream_SetsEventStreamHeaders_AndEmitsHeartbeatWhenIdle()
         {
             InMemoryOperationalLogBroadcaster broadcaster = new InMemoryOperationalLogBroadcaster();
-            using TestServer server = CreateServer(broadcaster);
-            HttpClient client = server.CreateClient();
+            using IHost host = await CreateHostAsync(broadcaster);
+            HttpClient client = host.GetTestClient();
 
             using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             using HttpResponseMessage response = await client.GetAsync(
@@ -77,8 +82,8 @@ namespace EasyReasy.Database.Logging.AspNetCore.Tests
         public async Task Stream_PublishedEvent_ArrivesAsCamelCaseDataFrame()
         {
             InMemoryOperationalLogBroadcaster broadcaster = new InMemoryOperationalLogBroadcaster();
-            using TestServer server = CreateServer(broadcaster);
-            HttpClient client = server.CreateClient();
+            using IHost host = await CreateHostAsync(broadcaster);
+            HttpClient client = host.GetTestClient();
 
             using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             using HttpResponseMessage response = await client.GetAsync(
