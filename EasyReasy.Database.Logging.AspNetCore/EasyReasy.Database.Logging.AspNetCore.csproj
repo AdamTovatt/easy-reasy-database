@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="EasyReasy.Database.Logging.AspNetCore.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\EasyReasy.Database.Logging\EasyReasy.Database.Logging.csproj" />
     <ProjectReference Include="..\EasyReasy.Database\EasyReasy.Database.csproj" />
   </ItemGroup>

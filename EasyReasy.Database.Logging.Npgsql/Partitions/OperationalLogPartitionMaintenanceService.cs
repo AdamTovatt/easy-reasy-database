@@ -2,7 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using EasyReasy.Database.Logging;
-using global::Npgsql;
+using Npgsql;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 

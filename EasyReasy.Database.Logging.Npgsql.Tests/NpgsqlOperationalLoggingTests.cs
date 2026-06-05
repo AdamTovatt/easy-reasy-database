@@ -22,6 +22,15 @@ namespace EasyReasy.Database.Logging.Npgsql.Tests
     {
         private const string Table = "oplog_test";
 
+        private sealed class FixedTimeProvider : TimeProvider
+        {
+            private readonly DateTimeOffset _now;
+
+            public FixedTimeProvider(DateTimeOffset now) => _now = now;
+
+            public override DateTimeOffset GetUtcNow() => _now;
+        }
+
         private static readonly string ConnectionString =
             Environment.GetEnvironmentVariable("EASYREASY_LOGGING_TEST_CONNECTION_STRING")
             ?? "Host=localhost;Port=5432;Database=easy-reasy-db-mapping;Username=postgres;Password=postgres";
@@ -112,25 +121,35 @@ namespace EasyReasy.Database.Logging.Npgsql.Tests
         }
 
         [Fact]
-        public async Task RunCycleAsync_DropsPartitionsOlderThanRetention_AndKeepsCurrentMonth()
+        public async Task RunCycleAsync_DropsPartitionsOlderThanRetention_AndKeepsThoseInsideTheWindow()
         {
+            // A fixed clock makes the retention boundary deterministic: now = 2025-06-15, retention
+            // 90 days → cutoff month = 2025-03. Anything before March 2025 is dropped; March onward
+            // is kept, and the current + future months are (re)created by EnsureFutureMonths.
+            FixedTimeProvider clock = new FixedTimeProvider(new DateTimeOffset(2025, 6, 15, 12, 0, 0, TimeSpan.Zero));
+
             await ExecuteAsync($"CREATE TABLE IF NOT EXISTS {Table}_2020_01 PARTITION OF {Table} FOR VALUES FROM ('2020-01-01') TO ('2020-02-01')");
+            await ExecuteAsync($"CREATE TABLE IF NOT EXISTS {Table}_2025_02 PARTITION OF {Table} FOR VALUES FROM ('2025-02-01') TO ('2025-03-01')");
+            await ExecuteAsync($"CREATE TABLE IF NOT EXISTS {Table}_2025_04 PARTITION OF {Table} FOR VALUES FROM ('2025-04-01') TO ('2025-05-01')");
 
             OperationalLogPartitionMaintenanceService service = new OperationalLogPartitionMaintenanceService(
                 _dataSource,
                 _options,
                 new NpgsqlOperationalLoggingOptions { Retention = TimeSpan.FromDays(90) },
-                TimeProvider.System,
+                clock,
                 NullLogger<OperationalLogPartitionMaintenanceService>.Instance);
 
             await service.RunCycleAsync(CancellationToken.None);
 
             List<string> children = await ListChildPartitionsAsync();
 
+            // Before the cutoff month → dropped.
             Assert.DoesNotContain($"{Table}_2020_01", children);
-
-            string currentMonthPartition = $"{Table}_{DateTime.UtcNow:yyyy}_{DateTime.UtcNow:MM}";
-            Assert.Contains(currentMonthPartition, children);
+            Assert.DoesNotContain($"{Table}_2025_02", children);
+            // On/after the cutoff month → kept.
+            Assert.Contains($"{Table}_2025_04", children);
+            // The clock's current month is ensured to exist.
+            Assert.Contains($"{Table}_2025_06", children);
         }
     }
 }

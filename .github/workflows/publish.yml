@@ -32,13 +32,16 @@ jobs:
         PACKAGE="${{ steps.tag.outputs.PACKAGE }}"
         # Map tag prefix to project name + matching test project.
         case "$PACKAGE" in
-          core)           PROJECT="EasyReasy.Database";                TEST_PROJECT="EasyReasy.Database.Tests" ;;
-          sqlite)         PROJECT="EasyReasy.Database.Sqlite";         TEST_PROJECT="EasyReasy.Database.Tests" ;;
-          testing)        PROJECT="EasyReasy.Database.Testing";        TEST_PROJECT="EasyReasy.Database.Tests" ;;
-          npgsql)         PROJECT="EasyReasy.Database.Npgsql";         TEST_PROJECT="EasyReasy.Database.Tests" ;;
-          mapping)        PROJECT="EasyReasy.Database.Mapping";        TEST_PROJECT="EasyReasy.Database.Mapping.Tests" ;;
-          mapping-npgsql) PROJECT="EasyReasy.Database.Mapping.Npgsql"; TEST_PROJECT="EasyReasy.Database.Mapping.Npgsql.Tests" ;;
-          *)              echo "Unknown package: $PACKAGE" && exit 1 ;;
+          core)               PROJECT="EasyReasy.Database";                    TEST_PROJECT="EasyReasy.Database.Tests" ;;
+          sqlite)             PROJECT="EasyReasy.Database.Sqlite";             TEST_PROJECT="EasyReasy.Database.Tests" ;;
+          testing)            PROJECT="EasyReasy.Database.Testing";            TEST_PROJECT="EasyReasy.Database.Tests" ;;
+          npgsql)             PROJECT="EasyReasy.Database.Npgsql";             TEST_PROJECT="EasyReasy.Database.Tests" ;;
+          mapping)            PROJECT="EasyReasy.Database.Mapping";            TEST_PROJECT="EasyReasy.Database.Mapping.Tests" ;;
+          mapping-npgsql)     PROJECT="EasyReasy.Database.Mapping.Npgsql";     TEST_PROJECT="EasyReasy.Database.Mapping.Npgsql.Tests" ;;
+          logging)            PROJECT="EasyReasy.Database.Logging";            TEST_PROJECT="EasyReasy.Database.Logging.Tests" ;;
+          logging-npgsql)     PROJECT="EasyReasy.Database.Logging.Npgsql";     TEST_PROJECT="EasyReasy.Database.Logging.Npgsql.Tests" ;;
+          logging-aspnetcore) PROJECT="EasyReasy.Database.Logging.AspNetCore"; TEST_PROJECT="EasyReasy.Database.Logging.AspNetCore.Tests" ;;
+          *)                  echo "Unknown package: $PACKAGE" && exit 1 ;;
         esac
         echo "PROJECT=${PROJECT}" >> $GITHUB_OUTPUT
         echo "TEST_PROJECT=${TEST_PROJECT}" >> $GITHUB_OUTPUT

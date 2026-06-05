@@ -35,7 +35,7 @@ namespace EasyReasy.Database.Logging.Sinks
 
         // Cap rows per INSERT so the parameter count (rows × columns) stays well under the most
         // restrictive provider limit (SQLite defaults to 999 bound parameters). 50 × 9 = 450.
-        private const int MaxRowsPerInsert = 50;
+        internal const int MaxRowsPerInsert = 50;
 
         private readonly DbDataSource _dataSource;
         private readonly OperationalLoggingOptions _options;

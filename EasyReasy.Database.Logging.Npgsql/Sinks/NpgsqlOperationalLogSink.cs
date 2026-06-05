@@ -2,7 +2,7 @@ using EasyReasy.Database.Logging;
 using EasyReasy.Database.Logging.Broadcasting;
 using EasyReasy.Database.Logging.Models;
 using EasyReasy.Database.Logging.Serialization;
-using global::Npgsql;
+using Npgsql;
 using NpgsqlTypes;
 using Serilog.Core;
 using Serilog.Debugging;

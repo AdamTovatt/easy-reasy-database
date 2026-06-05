@@ -70,8 +70,8 @@ namespace EasyReasy.Database.Logging.Reading
             {
                 level = filters.Level,
                 sourceContext = filters.SourceContext,
-                from = filters.From,
-                to = filters.To,
+                from = NormalizeToUtc(filters.From),
+                to = NormalizeToUtc(filters.To),
                 perPage,
                 offset,
             };
@@ -83,6 +83,23 @@ namespace EasyReasy.Database.Logging.Reading
             List<OperationalLogEntry> items = (await gridReader.ReadAsync<OperationalLogEntry>()).ToList();
 
             return new PagedResult<OperationalLogEntry>(totalCount, items, page, perPage);
+        }
+
+        // The filter contract treats From/To as UTC instants. Binding a DateTime whose Kind is
+        // Unspecified makes Npgsql send 'timestamp without time zone', which PostgreSQL then compares
+        // against the timestamptz column using the session time zone — silently skewing the boundary
+        // off-UTC deployments. Force the Kind so the parameter is always an unambiguous UTC instant.
+        internal static DateTime? NormalizeToUtc(DateTime? value)
+        {
+            if (!value.HasValue)
+            {
+                return null;
+            }
+
+            DateTime dateTime = value.Value;
+            return dateTime.Kind == DateTimeKind.Local
+                ? dateTime.ToUniversalTime()
+                : DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
         }
     }
 }

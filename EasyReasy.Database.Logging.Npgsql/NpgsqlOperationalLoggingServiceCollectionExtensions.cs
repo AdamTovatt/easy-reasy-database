@@ -3,7 +3,7 @@ using EasyReasy.Database.Logging;
 using EasyReasy.Database.Logging.Broadcasting;
 using EasyReasy.Database.Logging.Npgsql.Partitions;
 using EasyReasy.Database.Logging.Npgsql.Sinks;
-using global::Npgsql;
+using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;

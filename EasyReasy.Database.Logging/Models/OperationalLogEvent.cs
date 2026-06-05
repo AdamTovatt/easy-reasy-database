@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using EasyReasy.Database.Logging.Serialization;
+
 namespace EasyReasy.Database.Logging.Models
 {
     /// <summary>
@@ -34,6 +37,7 @@ namespace EasyReasy.Database.Logging.Models
         public string? UserId { get; set; }
 
         /// <summary>The remaining structured properties as a JSON document, or <c>null</c> if none.</summary>
+        [JsonConverter(typeof(RawJsonStringConverter))]
         public string? Properties { get; set; }
     }
 }
