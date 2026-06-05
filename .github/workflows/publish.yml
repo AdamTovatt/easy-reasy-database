@@ -50,6 +50,21 @@ jobs:
         echo "Project: ${PROJECT}"
         echo "Test project: ${TEST_PROJECT}"
 
+    - name: Verify tag version matches csproj VersionPrefix
+      run: |
+        PROJECT="${{ steps.project.outputs.PROJECT }}"
+        VERSION="${{ steps.tag.outputs.VERSION }}"
+        # The package version comes from each project's <VersionPrefix> (no global -p:Version
+        # override), which keeps cross-package ProjectReference dependency versions correct. Fail
+        # loudly if the tag and the csproj disagree rather than shipping a stale version — bump the
+        # project's VersionPrefix to match the tag before releasing.
+        CSPROJ_VERSION=$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "${PROJECT}/${PROJECT}.csproj")
+        if [ "${CSPROJ_VERSION}" != "${VERSION}" ]; then
+          echo "Tag version '${VERSION}' does not match ${PROJECT} VersionPrefix '${CSPROJ_VERSION}'" >&2
+          exit 1
+        fi
+        echo "Version OK: ${PROJECT} VersionPrefix ${CSPROJ_VERSION} == tag ${VERSION}"
+
     - name: Setup Postgres
       run: chmod +x setup_test_db.sh && ./setup_test_db.sh
     - name: Wait for Postgres
@@ -63,7 +78,7 @@ jobs:
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.tag.outputs.VERSION }}
+      run: dotnet build --no-restore --configuration Release
 
     # Only run the test project matching the package being published, and skip:
     # - IntegrationTests: require external services or are placeholders not meant for CI.
@@ -72,7 +87,7 @@ jobs:
       run: dotnet test ${{ steps.project.outputs.TEST_PROJECT }} --no-build --configuration Release --filter "FullyQualifiedName!~IntegrationTests&FullyQualifiedName!~PerformanceTest"
 
     - name: Pack
-      run: dotnet pack ${{ steps.project.outputs.PROJECT }} --no-build --configuration Release -p:Version=${{ steps.tag.outputs.VERSION }} --output ./nupkgs
+      run: dotnet pack ${{ steps.project.outputs.PROJECT }} --no-build --configuration Release --output ./nupkgs
 
     - name: Publish to NuGet
       run: dotnet nuget push ./nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
