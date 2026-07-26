@@ -12,6 +12,8 @@ Utilities for testing code that uses the EasyReasy.Database library.
 dotnet add package EasyReasy.Database.Testing
 ```
 
+> **Version note:** 2.0.0 targets `net10.0` (1.x targeted `net8.0`). The framework bump is the only breaking change — every API that shipped in 1.x is unchanged. Projects still on .NET 8 should stay on 1.0.1; everything added in 2.0.0 (per-checkout database naming, repository-root lookup) is net10-only, matching the newer packages in this repository.
+
 ## For Service Tests (Unit Tests)
 
 Use `FakeDbSession` and `FakeDbSessionFactory` when unit testing services. Mock repositories and verify transaction behavior without a real database.
@@ -197,3 +199,25 @@ public async Task GetBasicAsync_WhenNotFound_ReturnsNull()
 public async Task UpdateAsync_WhenInvalidId_ThrowsArgumentException()
 ```
 
+
+## Per-Checkout Test Databases
+
+`CheckoutDatabaseIdentity` derives the test database a checkout owns from its repository root path, so the suites of concurrent git worktrees never share (and never corrupt) one database:
+
+```csharp
+private static readonly CheckoutDatabaseIdentity Identity = new CheckoutDatabaseIdentity
+{
+    DatabasePrefix = "myproject_test_",
+    PinEnvironmentVariableName = "MYPROJECT_TEST_DATABASE_NAME",
+    CheckoutCommentPrefix = "myproject-test-checkout:",
+    RepositoryRootFileName = "MyProject.sln",
+};
+
+string databaseName = Identity.ResolveDatabaseName(); // myproject_test_<8 hex chars>, or the pinned name
+```
+
+The derivation is a SHA-256 of the canonical checkout path truncated to 8 hex characters, simple enough to mirror in a non-.NET harness (a Playwright global setup, for example) so both suites in one checkout land on the same database. Setting the pin environment variable bypasses the derivation — for CI, or for pointing a local run at a specific database.
+
+`RepositoryRoot` (walk up to the directory containing the solution file) supports the derivation and is usable on its own. The name validation the derivation relies on lives in `SqlIdentifier`, in the core [EasyReasy.Database](../EasyReasy.Database/README.md) package, because every identifier interpolated into SQL needs it — not only test database names.
+
+For actually provisioning the database on PostgreSQL — creation, ownership stamping for safe pruning, and cluster-wide role bootstrap under an advisory lock — see [EasyReasy.Database.Testing.Npgsql](../EasyReasy.Database.Testing.Npgsql/README.md).

@@ -38,6 +38,8 @@ jobs:
           sqlite)             PROJECT="EasyReasy.Database.Sqlite";             TEST_PROJECT="EasyReasy.Database.Tests" ;;
           testing)            PROJECT="EasyReasy.Database.Testing";            TEST_PROJECT="EasyReasy.Database.Tests" ;;
           npgsql)             PROJECT="EasyReasy.Database.Npgsql";             TEST_PROJECT="EasyReasy.Database.Tests" ;;
+          testing-npgsql)     PROJECT="EasyReasy.Database.Testing.Npgsql";     TEST_PROJECT="EasyReasy.Database.Testing.Npgsql.Tests" ;;
+          testing-prunetool)  PROJECT="EasyReasy.Database.Testing.PruneTool";  TEST_PROJECT="EasyReasy.Database.Testing.Npgsql.Tests" ;;
           mapping)            PROJECT="EasyReasy.Database.Mapping";            TEST_PROJECT="EasyReasy.Database.Mapping.Tests" ;;
           mapping-npgsql)     PROJECT="EasyReasy.Database.Mapping.Npgsql";     TEST_PROJECT="EasyReasy.Database.Mapping.Npgsql.Tests" ;;
           logging)            PROJECT="EasyReasy.Database.Logging";            TEST_PROJECT="EasyReasy.Database.Logging.Tests" ;;

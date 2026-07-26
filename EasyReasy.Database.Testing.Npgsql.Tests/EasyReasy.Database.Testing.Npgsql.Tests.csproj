@@ -7,13 +7,13 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <xUnitDisableParallelization>true</xUnitDisableParallelization>
+    <!-- Parallelization is disabled in AssemblyInfo.cs; the MSBuild property of that name does nothing. -->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   </ItemGroup>
@@ -23,9 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\EasyReasy.Database.Sqlite\EasyReasy.Database.Sqlite.csproj" />
     <ProjectReference Include="..\EasyReasy.Database.Testing\EasyReasy.Database.Testing.csproj" />
-    <ProjectReference Include="..\EasyReasy.Database\EasyReasy.Database.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database.Testing.Npgsql\EasyReasy.Database.Testing.Npgsql.csproj" />
+    <ProjectReference Include="..\EasyReasy.Database.Testing.PruneTool\EasyReasy.Database.Testing.PruneTool.csproj" />
   </ItemGroup>
 
 </Project>
