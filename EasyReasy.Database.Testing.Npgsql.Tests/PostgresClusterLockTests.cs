@@ -33,7 +33,7 @@ namespace EasyReasy.Database.Testing.Npgsql.Tests
         /// Two independent mechanisms uphold it — the explicit unlock in <c>DisposeAsync</c> and the
         /// unpooled connection, either of which suffices — so this test fails only if BOTH are removed. It
         /// is deliberately not billed as a guard on the pooling fix specifically; that decision is pinned
-        /// directly in <see cref="MaintenanceUnpooled_ForAnyConnectionString_IsUnpooledAndPointsAtTheMaintenanceDatabase"/>,
+        /// directly in <see cref="PostgresConnectionStringsTests.MaintenanceUnpooled_OverAFullyConfiguredConnectionString_IsBothUnpooledAndMaintenance"/>,
         /// where it is observable.
         /// </para>
         /// <para>
@@ -52,62 +52,6 @@ namespace EasyReasy.Database.Testing.Npgsql.Tests
             }
 
             Assert.True(await TryAcquireFromAnotherSessionAsync(connectionString), "the lock should be free once disposed");
-        }
-
-        /// <summary>
-        /// The pooling decision, pinned where it is actually observable — the behaviour it prevents is
-        /// Npgsql's, not ours, so it cannot be provoked through our own API once the explicit unlock is in
-        /// place. An advisory lock belongs to the SESSION, and a pooled connection's session outlives the
-        /// <c>NpgsqlConnection</c> that borrowed it (Npgsql defers its <c>DISCARD ALL</c> reset until the
-        /// connection is next used), so a pooled lock holder returned to the pool would leave the lock held
-        /// by an idle session.
-        /// </summary>
-        [Fact]
-        public void MaintenanceUnpooled_ForAnyConnectionString_IsUnpooledAndPointsAtTheMaintenanceDatabase()
-        {
-            NpgsqlConnectionStringBuilder builder = new NpgsqlConnectionStringBuilder(
-                PostgresConnectionStrings.MaintenanceUnpooled(TestConnection.ConnectionString));
-
-            Assert.False(builder.Pooling, "a pooled lock holder would leave the lock held by an idle session");
-            Assert.Equal(PostgresConnectionStrings.MaintenanceDatabase, builder.Database);
-        }
-
-        /// <summary>
-        /// The contract of the whole type: only the database changes. Host and credentials have to survive
-        /// the rewrite, or a harness configured against a remote cluster would silently provision against
-        /// whatever the defaults point at — most likely a local one.
-        /// </summary>
-        [Fact]
-        public void WithDatabase_OverAFullyConfiguredConnectionString_ChangesOnlyTheDatabase()
-        {
-            const string configured = "Host=db.example.invalid;Port=5433;Database=configured;Username=someone;Password=secret;Timeout=17";
-
-            NpgsqlConnectionStringBuilder rewritten = new NpgsqlConnectionStringBuilder(
-                PostgresConnectionStrings.WithDatabase(configured, "example_test_67d7ea4a"));
-
-            Assert.Equal("example_test_67d7ea4a", rewritten.Database);
-            Assert.Equal("db.example.invalid", rewritten.Host);
-            Assert.Equal(5433, rewritten.Port);
-            Assert.Equal("someone", rewritten.Username);
-            Assert.Equal("secret", rewritten.Password);
-            Assert.Equal(17, rewritten.Timeout);
-        }
-
-        /// <inheritdoc cref="WithDatabase_OverAFullyConfiguredConnectionString_ChangesOnlyTheDatabase"/>
-        [Fact]
-        public void Maintenance_OverAFullyConfiguredConnectionString_KeepsEverythingButTheDatabase()
-        {
-            const string configured = "Host=db.example.invalid;Port=5433;Database=configured;Username=someone;Password=secret";
-
-            NpgsqlConnectionStringBuilder rewritten = new NpgsqlConnectionStringBuilder(
-                PostgresConnectionStrings.Maintenance(configured));
-
-            Assert.Equal(PostgresConnectionStrings.MaintenanceDatabase, rewritten.Database);
-            Assert.Equal("db.example.invalid", rewritten.Host);
-            Assert.Equal(5433, rewritten.Port);
-            Assert.Equal("someone", rewritten.Username);
-            Assert.Equal("secret", rewritten.Password);
-            Assert.True(rewritten.Pooling, "only MaintenanceUnpooled turns pooling off");
         }
 
         /// <summary>

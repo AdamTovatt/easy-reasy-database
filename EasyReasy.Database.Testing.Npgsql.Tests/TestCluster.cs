@@ -16,6 +16,24 @@ namespace EasyReasy.Database.Testing.Npgsql.Tests
             return PostgresConnectionStrings.WithDatabase(TestConnection.ConnectionString, databaseName);
         }
 
+        /// <summary>
+        /// A derived-looking database name of one test's own, so it can never touch a real project's.
+        /// <paramref name="prefix"/> identifies which test class owns it, which is what makes a leftover
+        /// attributable.
+        /// <para>
+        /// The shape is derived-looking but these databases are NOT reclaimable: a sweep drops only
+        /// databases that both look derived AND carry an ownership marker, and these are created without
+        /// one. Each test's <c>finally</c> is therefore the whole story — a run killed mid-test leaves a
+        /// database no sweep will ever collect. Deliberate: stamping them would enrol them in a sweep this
+        /// repository does not run, and they are small enough that the manual cost is lower than the risk
+        /// of a marker written by a test.
+        /// </para>
+        /// </summary>
+        internal static string ThrowawayDatabaseName(string prefix)
+        {
+            return prefix + Guid.NewGuid().ToString("n")[..CheckoutDatabaseIdentity.HashLength];
+        }
+
         /// <summary>Whether <paramref name="databaseName"/> exists in the cluster.</summary>
         internal static async Task<bool> DatabaseExistsAsync(string databaseName)
         {

@@ -3,8 +3,10 @@ using Npgsql;
 namespace EasyReasy.Database.Testing.Npgsql
 {
     /// <summary>
-    /// Derives the connection strings a test harness needs from the one it was configured with, keeping
-    /// the host, port and credentials and varying only the database.
+    /// Derives the connection strings a test harness needs from the one it was configured with. Each
+    /// varies one axis — the database, or pooling — and every one of them keeps the host, port and
+    /// credentials, which is the property that matters: a derivation that dropped them would not fail, it
+    /// would quietly connect somewhere else.
     /// </summary>
     public static class PostgresConnectionStrings
     {
@@ -30,19 +32,28 @@ namespace EasyReasy.Database.Testing.Npgsql
         }
 
         /// <summary>
-        /// The maintenance connection a cluster-wide advisory lock is held on, which must be UNPOOLED.
-        /// An advisory lock belongs to the session, and a pooled connection's session outlives the
-        /// <c>NpgsqlConnection</c> that borrowed it: Npgsql defers its <c>DISCARD ALL</c> reset until the
-        /// connection is next used — verified against Npgsql 10 — so returning a lock holder to the pool
-        /// would leave the lock held by an idle session and deadlock the next run.
+        /// Returns <paramref name="connectionString"/> with pooling turned off, for work whose SESSION
+        /// state matters. A pooled connection's session outlives the <c>NpgsqlConnection</c> that borrowed
+        /// it — Npgsql defers its <c>DISCARD ALL</c> reset until the connection is next used, verified
+        /// against Npgsql 10 — so anything that must end when the object is disposed needs this.
         /// </summary>
-        public static string MaintenanceUnpooled(string connectionString)
+        public static string Unpooled(string connectionString)
         {
             return new NpgsqlConnectionStringBuilder(connectionString)
             {
-                Database = MaintenanceDatabase,
                 Pooling = false,
             }.ConnectionString;
+        }
+
+        /// <summary>
+        /// The maintenance connection a cluster-wide advisory lock is held on, which must be UNPOOLED.
+        /// An advisory lock belongs to the session, so returning a lock holder to the pool would leave the
+        /// lock held by an idle session and deadlock the next run. See <see cref="Unpooled"/> for why a
+        /// pooled session outlives its <c>NpgsqlConnection</c>.
+        /// </summary>
+        public static string MaintenanceUnpooled(string connectionString)
+        {
+            return Unpooled(Maintenance(connectionString));
         }
     }
 }
