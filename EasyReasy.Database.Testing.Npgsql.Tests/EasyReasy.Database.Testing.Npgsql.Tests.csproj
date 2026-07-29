@@ -8,6 +8,16 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <!-- Parallelization is disabled in AssemblyInfo.cs; the MSBuild property of that name does nothing. -->
+
+    <!--
+      These tests carry doc comments whose whole job is to survive a refactor — naming the mutation each
+      test catches, and cross-referencing the test that catches it. Without this, a cref pointing at a
+      renamed or deleted member compiles silently and the doc rots unnoticed; with it, the compiler reports
+      CS1574. 1591 is suppressed because the requirement here is that the links resolve, not that every
+      public test member is documented.
+    -->
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

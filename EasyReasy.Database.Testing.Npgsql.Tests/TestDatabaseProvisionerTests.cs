@@ -1,3 +1,4 @@
+using EasyReasy.Database.Testing.PruneTool;
 using Npgsql;
 
 namespace EasyReasy.Database.Testing.Npgsql.Tests
@@ -145,10 +146,27 @@ namespace EasyReasy.Database.Testing.Npgsql.Tests
                 () => TestDatabaseProvisioner.EnsureDatabaseExistsAsync(connectionString, ownershipMarker: null));
         }
 
-        /// <summary>A derived-looking name of this test's own, so it can never touch a real one.</summary>
         private static string ThrowawayDatabaseName()
         {
-            return string.Concat("easyreasy_prov_test_", Guid.NewGuid().ToString("n").AsSpan(0, 8));
+            return TestCluster.ThrowawayDatabaseName(ThrowawayPrefix);
+        }
+
+        private const string ThrowawayPrefix = "easyreasy_prov_test_";
+
+        /// <summary>
+        /// The throwaway names these tests reason about really do have the derived shape, checked against
+        /// the sweep's own rule rather than against a second copy of it here. It is the shape half of what
+        /// makes a database reclaimable; these deliberately carry no ownership marker, which is the other
+        /// half and the reason no sweep will ever collect them.
+        /// </summary>
+        [Fact]
+        public void ThrowawayDatabaseName_ForAnyPrefix_HasTheShapeASweepRecognises()
+        {
+            string name = TestCluster.ThrowawayDatabaseName(ThrowawayPrefix);
+
+            Assert.True(
+                PruneDecisions.HasDerivedShape(name, ThrowawayPrefix),
+                $"'{name}' must have the derived shape, or these tests are reasoning about the wrong names");
         }
     }
 }
