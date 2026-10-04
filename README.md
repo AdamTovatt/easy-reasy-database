@@ -25,7 +25,7 @@ Click the name of the library you want to read more about in the table below to 
 
 ## Publishing
 
-Each package is published to NuGet by pushing a git tag of the form `<package>-v<version>`. The [`Publish NuGet`](.github/workflows/publish.yml) workflow picks up the tag, builds the matching project in `Release` with the version baked in (`-p:Version=<version>`), runs the matching test project (excluding `IntegrationTests` and `PerformanceTest`), packs, and pushes to nuget.org using the `NUGET_API_KEY` repo secret with `--skip-duplicate`.
+Each package is published to NuGet by pushing a git tag of the form `<package>-v<version>`. The [`Publish NuGet`](.github/workflows/publish.yml) workflow picks up the tag, fails unless the tag's version equals the matching project's csproj `VersionPrefix`, builds in `Release`, runs the matching test project (excluding `IntegrationTests` and `PerformanceTest`), packs, and pushes to nuget.org using the `NUGET_API_KEY` repo secret with `--skip-duplicate`.
 
 | Package | Tag prefix | Project | Test project |
 |---------|-----------|---------|--------------|
@@ -58,8 +58,8 @@ EasyReasy.Database                  (core; no dependencies in this repository)
        └─ EasyReasy.Database.Testing.PruneTool
 ```
 
-`EasyReasy.Database.Testing`, `.Npgsql`, `.Sqlite`, `.Mapping` and `.Logging` all sit directly on core and are independent of each other.
+`EasyReasy.Database.Testing`, `.Npgsql`, `.Sqlite` and `.Logging` all sit directly on core and are independent of each other.
 
 A package records the minimum version of each package it references in this repository when it is packed, taken from that project's `VersionPrefix` at that moment. After a core major bump, the next release of any package that references core therefore requires the new core major, even when its own code is unchanged. A consumer that references the older core directly then gets a package-downgrade error (NU1605), and one that gets core only through that package is moved to the new core.
 
-The tag version overrides the csproj `VersionPrefix` at build time, so the source-controlled version mainly matters for local `dotnet pack` runs. Bumping it alongside the change being shipped is still recommended so `git blame` on the csproj tells the same story as the tag.
+The package version comes from the project's csproj `VersionPrefix`, not from the tag, which keeps the dependency versions that `ProjectReference`s write into each package correct. Bump `VersionPrefix` in the change being shipped: the workflow fails the release when the tag's version and the project's `VersionPrefix` differ.
