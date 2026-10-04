@@ -25,7 +25,7 @@ namespace EasyReasy.Database
         }
 
         /// <inheritdoc/>
-        public Task<IDbSession> CreateSessionWithTransactionAsync()
+        public Task<IDbTransactionSession> CreateSessionWithTransactionAsync()
         {
             return SessionFactory.CreateSessionWithTransactionAsync();
         }

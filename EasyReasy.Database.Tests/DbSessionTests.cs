@@ -8,70 +8,39 @@ namespace EasyReasy.Database.Tests
         [Fact]
         public void Constructor_WhenConnectionIsNull_ThrowsArgumentNullException()
         {
-            Assert.Throws<ArgumentNullException>(() => new DbSession(null!, null));
+            Assert.Throws<ArgumentNullException>(() => new DbSession(null!));
         }
 
         [Fact]
-        public async Task CommitAsync_WhenNoTransaction_ThrowsInvalidOperationException()
+        public async Task CommitAsync_WhenCalled_ThrowsInvalidOperationException()
         {
             await using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
             {
                 await connection.OpenAsync();
-                DbSession session = new DbSession(connection, null);
+                DbSession session = new DbSession(connection);
 
                 await Assert.ThrowsAsync<InvalidOperationException>(() => session.CommitAsync());
             }
         }
 
         [Fact]
-        public async Task CommitAsync_WhenTransactionExists_CommitsSuccessfully()
+        public async Task RollbackAsync_WhenCalled_ThrowsInvalidOperationException()
         {
             await using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
             {
                 await connection.OpenAsync();
-                DbTransaction transaction = await connection.BeginTransactionAsync();
-                DbSession session = new DbSession(connection, transaction);
-
-                await session.CommitAsync();
-
-                Assert.NotNull(session.Transaction);
-            }
-        }
-
-        [Fact]
-        public async Task RollbackAsync_WhenNoTransaction_ThrowsInvalidOperationException()
-        {
-            await using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
-            {
-                await connection.OpenAsync();
-                DbSession session = new DbSession(connection, null);
+                DbSession session = new DbSession(connection);
 
                 await Assert.ThrowsAsync<InvalidOperationException>(() => session.RollbackAsync());
             }
         }
 
         [Fact]
-        public async Task RollbackAsync_WhenTransactionExists_RollsBackSuccessfully()
-        {
-            await using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
-            {
-                await connection.OpenAsync();
-                DbTransaction transaction = await connection.BeginTransactionAsync();
-                DbSession session = new DbSession(connection, transaction);
-
-                await session.RollbackAsync();
-
-                Assert.NotNull(session.Transaction);
-            }
-        }
-
-        [Fact]
-        public async Task DisposeAsync_WhenCalled_DisposesConnectionAndTransaction()
+        public async Task DisposeAsync_WhenCalled_ClosesConnection()
         {
             DbConnection connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            DbTransaction transaction = await connection.BeginTransactionAsync();
-            DbSession session = new DbSession(connection, transaction);
+            DbSession session = new DbSession(connection);
 
             await session.DisposeAsync();
 
@@ -79,17 +48,14 @@ namespace EasyReasy.Database.Tests
         }
 
         [Fact]
-        public async Task DisposeAsync_WhenCalledMultipleTimes_IsIdempotent()
+        public async Task DisposeAsync_WhenCalledMultipleTimes_DoesNotThrow()
         {
             DbConnection connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            DbTransaction transaction = await connection.BeginTransactionAsync();
-            DbSession session = new DbSession(connection, transaction);
+            DbSession session = new DbSession(connection);
 
             await session.DisposeAsync();
             await session.DisposeAsync();
-
-            Assert.True(true);
         }
 
         [Fact]
@@ -97,35 +63,21 @@ namespace EasyReasy.Database.Tests
         {
             using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
             {
-                DbSession session = new DbSession(connection, null);
+                DbSession session = new DbSession(connection);
 
                 Assert.Same(connection, session.Connection);
             }
         }
 
         [Fact]
-        public void Transaction_WhenSet_ReturnsCorrectTransaction()
+        public void Transaction_WhenAccessed_ReturnsNull()
         {
             using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
             {
-                connection.Open();
-                DbTransaction transaction = connection.BeginTransaction();
-                DbSession session = new DbSession(connection, transaction);
-
-                Assert.Same(transaction, session.Transaction);
-            }
-        }
-
-        [Fact]
-        public void Transaction_WhenNotSet_ReturnsNull()
-        {
-            using (DbConnection connection = new SqliteConnection("Data Source=:memory:"))
-            {
-                DbSession session = new DbSession(connection, null);
+                IDbSession session = new DbSession(connection);
 
                 Assert.Null(session.Transaction);
             }
         }
     }
 }
-

@@ -18,7 +18,7 @@ namespace EasyReasy.Database
         /// Convenience method for services that need to coordinate multiple repository calls in a transaction.
         /// </summary>
         /// <returns>A database session with an active transaction.</returns>
-        Task<IDbSession> CreateSessionWithTransactionAsync();
+        Task<IDbTransactionSession> CreateSessionWithTransactionAsync();
     }
 }
 

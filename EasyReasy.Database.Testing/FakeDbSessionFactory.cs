@@ -49,10 +49,10 @@ namespace EasyReasy.Database.Testing
         }
 
         /// <inheritdoc/>
-        public Task<IDbSession> CreateSessionWithTransactionAsync()
+        public Task<IDbTransactionSession> CreateSessionWithTransactionAsync()
         {
             CreateSessionWithTransactionCallCount++;
-            return Task.FromResult<IDbSession>(_session);
+            return Task.FromResult<IDbTransactionSession>(_session);
         }
 
         /// <summary>

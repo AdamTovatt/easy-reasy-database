@@ -13,11 +13,23 @@ namespace EasyReasy.Database.Tests.Testing
         }
 
         [Fact]
-        public void Transaction_WhenAccessed_ReturnsNull()
+        public void Transaction_WhenAccessed_ReturnsFakeDbTransaction()
         {
             FakeDbSession session = new FakeDbSession();
 
-            Assert.Null(session.Transaction);
+            Assert.IsType<FakeDbTransaction>(session.Transaction);
+        }
+
+        [Fact]
+        public void Transaction_WhenReadAsEitherInterface_ReturnsSameTransaction()
+        {
+            FakeDbSession session = new FakeDbSession();
+
+            IDbTransactionSession transactionSession = session;
+            IDbSession plainSession = session;
+
+            Assert.NotNull(plainSession.Transaction);
+            Assert.Same(transactionSession.Transaction, plainSession.Transaction);
         }
 
         [Fact]

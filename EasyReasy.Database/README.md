@@ -18,6 +18,12 @@ If you already have a repository and you are thinking about writing a service th
 dotnet add package EasyReasy.Database
 ```
 
+> **Version note:** In 2.0.0:
+> - `CreateSessionWithTransactionAsync()` on `IDbSessionFactory`, `IRepository` and `RepositoryBase` returns [`IDbTransactionSession`](#idbtransactionsession). Code that awaits it compiles unchanged, because an `IDbTransactionSession` is an `IDbSession`.
+> - Classes that implement `IDbSessionFactory` or `IRepository` themselves (not through `RepositoryBase`), and mock setups of `CreateSessionWithTransactionAsync()`, return an `IDbTransactionSession`.
+> - `DbSession` takes only a connection. `new DbSession(connection, transaction)` becomes `new DbTransactionSession(connection, transaction)`.
+> - Core 2.0.0 works only with [EasyReasy.Database.Testing](../EasyReasy.Database.Testing/README.md) 3.0.0 or later; its version note explains how an older Testing fails.
+
 ## For Service Developers (Using Repositories)
 
 ### Single Query (Most Common)
@@ -29,7 +35,7 @@ CustomerBasic? customer = await _customerRepository.GetBasicAsync(externalId);
 ### Transactions
 ```csharp
 // Multiple operations that must succeed or fail together
-await using (IDbSession session = await _customerRepository.CreateSessionWithTransactionAsync())
+await using (IDbTransactionSession session = await _customerRepository.CreateSessionWithTransactionAsync())
 {
     await _customerRepository.UpdateBasicAsync(externalId, data, session);
     await _anotherRepository.UpdateRelatedDataAsync(externalId, data, session);
@@ -66,6 +72,16 @@ It is the core abstraction repositories use when executing queries.
 
 Sessions own their connection and transaction – you should never dispose the `DbConnection` or `DbTransaction` directly, only the `IDbSession`.
 
+### IDbTransactionSession
+
+`IDbTransactionSession` is an `IDbSession` that always has a transaction. It redeclares `Transaction` as non-nullable `DbTransaction`, so code holding one never has to check for null. `CreateSessionWithTransactionAsync()` returns this type.
+
+Because it is still an `IDbSession`, it can be passed to every repository method that takes an optional `IDbSession? session`. `CommitAsync()` and `RollbackAsync()` are the same members as on `IDbSession`.
+
+A repository method that must run inside a transaction takes a required `IDbTransactionSession` instead of an optional `IDbSession?` (see [Repository method signature pattern](#key-patterns)). Passing a session without a transaction then fails at compile time instead of at runtime.
+
+`IDbTransactionSession.Transaction` hides `IDbSession.Transaction`, so they are two separate interface members. An implementation with one public `Transaction` property, like `DbTransactionSession`, returns the same transaction from both. A mock of the interface has to set up both; see the [EasyReasy.Database.Testing README](../EasyReasy.Database.Testing/README.md#mocking-idbtransactionsession).
+
 ### IDbSessionFactory and DbSessionFactory
 
 `IDbSessionFactory` is the abstraction for creating `IDbSession` instances. It is used by `RepositoryBase` so repositories have a consistent way to obtain sessions and so tests can easily provide fake implementations.
@@ -76,12 +92,12 @@ Sessions own their connection and transaction – you should never dispose the `
 public interface IDbSessionFactory
 {
     Task<IDbSession> CreateSessionAsync();
-    Task<IDbSession> CreateSessionWithTransactionAsync();
+    Task<IDbTransactionSession> CreateSessionWithTransactionAsync();
 }
 ```
 
 - **`CreateSessionAsync()`**: Creates a session *without* a transaction. Each command auto-commits when executed.
-- **`CreateSessionWithTransactionAsync()`**: Creates a session *with* an active transaction. The caller is responsible for calling `CommitAsync()` or `RollbackAsync()`.
+- **`CreateSessionWithTransactionAsync()`**: Creates an `IDbTransactionSession`, a session *with* an active transaction. The caller is responsible for calling `CommitAsync()` or `RollbackAsync()`.
 
 `DbSessionFactory` is the default implementation of `IDbSessionFactory` and uses a `DbDataSource` to open connections:
 
@@ -98,19 +114,22 @@ public class DbSessionFactory : IDbSessionFactory
     public async Task<IDbSession> CreateSessionAsync()
     {
         DbConnection connection = await _dataSource.OpenConnectionAsync();
-        return new DbSession(connection, transaction: null);
+        return new DbSession(connection);
     }
 
-    public async Task<IDbSession> CreateSessionWithTransactionAsync()
+    public async Task<IDbTransactionSession> CreateSessionWithTransactionAsync()
     {
         DbConnection connection = await _dataSource.OpenConnectionAsync();
         DbTransaction transaction = await connection.BeginTransactionAsync();
-        return new DbSession(connection, transaction);
+        return new DbTransactionSession(connection, transaction);
     }
 }
 ```
 
-`DbSession` is the concrete implementation of `IDbSession`. It holds the connection and (optional) transaction and implements the `CommitAsync`, `RollbackAsync`, and `DisposeAsync` behavior described above.
+There are two concrete sessions, and both own and dispose what they are given:
+
+- **`DbSession(DbConnection connection)`** is the plain session. Its `Transaction` is always `null`, and `CommitAsync()` and `RollbackAsync()` fail with `InvalidOperationException`.
+- **`DbTransactionSession(DbConnection connection, DbTransaction transaction)`** implements `IDbTransactionSession`. It throws `ArgumentNullException` for a null connection or transaction, its `CommitAsync()` and `RollbackAsync()` act on that transaction, and it disposes the transaction before the connection. Use it to wrap a connection and transaction you opened yourself, for example in a test that controls its own connection.
 
 ### When to Use Which Session Method
 
@@ -125,7 +144,7 @@ public class DbSessionFactory : IDbSessionFactory
 public interface IRepository
 {
     DbDataSource DataSource { get; }
-    Task<IDbSession> CreateSessionWithTransactionAsync();
+    Task<IDbTransactionSession> CreateSessionWithTransactionAsync();
 }
 
 // Specific repository interface extends IRepository
@@ -169,7 +188,7 @@ public class CustomerRepository : RepositoryBase, ICustomerRepository
 
 ### Key Patterns
 
-**Always use `UseSessionAsync`** - it handles connection management and transaction support:
+**Use `UseSessionAsync` in methods that take an optional `IDbSession?`** - it handles connection management and transaction support:
 ```csharp
 protected async Task<T> UseSessionAsync<T>(Func<IDbSession, Task<T>> action, IDbSession? session = null)
 ```
@@ -183,7 +202,21 @@ await dbSession.Connection.QueryAsync<T>(query, parameters, transaction: dbSessi
 ```csharp
 Task<ReturnType> MethodNameAsync(params, IDbSession? session = null)
 ```
-All methods should have an optional parameter of type `IDbSession?` so that an implementation of `IDbSession` can be passed by the caller. This allows callers to control connection and transaction behaviour if they want to but also allows for fallback to a simple one connection per query without any explicit transaction control.
+Methods should have an optional parameter of type `IDbSession?` so that an implementation of `IDbSession` can be passed by the caller. This allows callers to control connection and transaction behaviour if they want to but also allows for fallback to a simple one connection per query without any explicit transaction control.
+
+**Methods that must run inside a transaction** take a required `IDbTransactionSession` instead:
+```csharp
+Task<ReturnType> MethodNameAsync(params, IDbTransactionSession session)
+```
+Use this when the method is only correct as part of a larger unit of work, so its writes must commit or roll back together with the caller's other writes. A plain `IDbSession` does not compile as the argument, and a non-null `IDbTransactionSession` always has a transaction, so the method needs no runtime transaction check. It can use the session directly without `UseSessionAsync`:
+```csharp
+public async Task MoveLinksAsync(Guid fromId, Guid toId, IDbTransactionSession session)
+{
+    string query = $@"UPDATE link SET parent_id = @{nameof(toId)} WHERE parent_id = @{nameof(fromId)}";
+
+    await session.Connection.ExecuteAsync(query, new { fromId, toId }, transaction: session.Transaction);
+}
+```
 
 **Consider using `nameof()` for parameters** - instead of hardcoding the names, for example:
 ```csharp
@@ -203,6 +236,7 @@ public interface ICustomerRepository : IRepository
 {
     // CreateSessionWithTransactionAsync() inherited from IRepository
     Task<CustomerBasic?> GetBasicAsync(string externalId, IDbSession? session = null);
+    Task MergeAsync(string fromExternalId, string toExternalId, IDbTransactionSession session);
     // ... more methods
 }
 ```
@@ -211,7 +245,7 @@ public interface ICustomerRepository : IRepository
 
 - **All repository interfaces extend IRepository** - ensures consistent access to DataSource
 - **Repositories never manage transactions** - repositories never create, commit, or rollback transactions; callers control all transaction boundaries
-- **Session parameter is always optional** - defaults to single-query connection
+- **Session parameter is optional** - defaults to single-query connection; a method that must run inside a transaction takes a required `IDbTransactionSession` instead
 - **Explicit commits required** - transactions don't auto-commit
 - **Session owns connection** - always dispose sessions (not connections directly). Repositories dispose sessions they create internally; callers dispose sessions they create for transactions.
 
@@ -226,7 +260,7 @@ This is critical because:
 
 Example of correct usage:
 ```csharp
-await using (IDbSession session = await _customerRepository.CreateSessionWithTransactionAsync())
+await using (IDbTransactionSession session = await _customerRepository.CreateSessionWithTransactionAsync())
 {
     await _customerRepository.CreateAsync(...data..., session);
     await _anotherRepository.UpdateRelatedDataAsync(...data..., session);
@@ -244,7 +278,7 @@ If you exit the `using` statement without calling `CommitAsync()`, the transacti
 
 Example of what NOT to do:
 ```csharp
-await using (IDbSession session = await _customerRepository.CreateSessionWithTransactionAsync())
+await using (IDbTransactionSession session = await _customerRepository.CreateSessionWithTransactionAsync())
 {
     await _customerRepository.CreateAsync(...data..., session);
     // Oops! Forgot to call CommitAsync() - transaction will be rolled back on disposal
@@ -257,7 +291,7 @@ If an exception occurs during your operations, you have two options:
 
 **Option 1: Let it rollback automatically (simplest)**
 ```csharp
-await using (IDbSession session = await _customerRepository.CreateSessionWithTransactionAsync())
+await using (IDbTransactionSession session = await _customerRepository.CreateSessionWithTransactionAsync())
 {
     await _customerRepository.CreateAsync(...data..., session);
     await _anotherRepository.UpdateRelatedDataAsync(...data..., session);
@@ -268,7 +302,7 @@ await using (IDbSession session = await _customerRepository.CreateSessionWithTra
 
 **Option 2: Explicitly rollback in a catch block (for clarity)**
 ```csharp
-await using (IDbSession session = await _customerRepository.CreateSessionWithTransactionAsync())
+await using (IDbTransactionSession session = await _customerRepository.CreateSessionWithTransactionAsync())
 {
     try
     {

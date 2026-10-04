@@ -132,8 +132,8 @@ namespace EasyReasy.Database.Testing
         /// <summary>
         /// Creates a new database session with an active transaction.
         /// </summary>
-        /// <returns>A new IDbSession with an active transaction.</returns>
-        public async Task<IDbSession> CreateTransactionSessionAsync()
+        /// <returns>A new IDbTransactionSession with an active transaction.</returns>
+        public async Task<IDbTransactionSession> CreateTransactionSessionAsync()
         {
             InitializeDataSource();
             return await SessionFactory.CreateSessionWithTransactionAsync();

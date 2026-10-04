@@ -27,14 +27,14 @@ namespace EasyReasy.Database.Tests.Testing
         }
 
         [Fact]
-        public async Task CreateSessionWithTransactionAsync_WhenCalled_ReturnsSession()
+        public async Task CreateSessionWithTransactionAsync_WhenCalled_ReturnsSharedSessionWithFakeTransaction()
         {
             FakeDbSessionFactory factory = new FakeDbSessionFactory();
 
-            IDbSession session = await factory.CreateSessionWithTransactionAsync();
+            IDbTransactionSession session = await factory.CreateSessionWithTransactionAsync();
 
-            Assert.NotNull(session);
-            Assert.IsType<FakeDbSession>(session);
+            Assert.Same(factory.Session, session);
+            Assert.IsType<FakeDbTransaction>(session.Transaction);
         }
 
         [Fact]
