@@ -128,10 +128,10 @@ namespace EasyReasy.Database.Tests
 
             TestRepository repository = new TestRepository(dataSource, sessionFactory);
 
-            await using (IDbSession session = await repository.CreateSessionWithTransactionAsync())
+            await using (IDbTransactionSession session = await repository.CreateSessionWithTransactionAsync())
             {
                 Assert.NotNull(session.Connection);
-                Assert.NotNull(session.Transaction);
+                Assert.Same(session.Connection, session.Transaction.Connection);
             }
         }
 

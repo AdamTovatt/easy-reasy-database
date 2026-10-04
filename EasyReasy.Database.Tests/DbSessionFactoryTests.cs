@@ -1,4 +1,5 @@
 using EasyReasy.Database.Sqlite;
+using EasyReasy.Database.Tests.TestDoubles;
 using System.Data.Common;
 
 namespace EasyReasy.Database.Tests
@@ -28,10 +29,38 @@ namespace EasyReasy.Database.Tests
 
             DbSessionFactory sessionFactory = new DbSessionFactory(dataSource);
 
-            await using (IDbSession session = await sessionFactory.CreateSessionWithTransactionAsync())
+            await using (IDbTransactionSession session = await sessionFactory.CreateSessionWithTransactionAsync())
             {
                 Assert.NotNull(session.Connection);
-                Assert.NotNull(session.Transaction);
+                Assert.Same(session.Connection, session.Transaction.Connection);
+            }
+        }
+
+        [Fact]
+        public async Task CreateSessionWithTransactionAsync_WhenBeginTransactionFails_DisposesConnection()
+        {
+            TrackingDbConnection connection = new TrackingDbConnection();
+            DbSessionFactory sessionFactory = new DbSessionFactory(new SingleConnectionDataSource(connection));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => sessionFactory.CreateSessionWithTransactionAsync());
+
+            Assert.True(connection.WasDisposed);
+        }
+
+        [Fact]
+        public async Task CreateSessionWithTransactionAsync_WhenReadAsEitherInterface_ReturnsSameTransaction()
+        {
+            SqliteDataSourceFactory factory = new SqliteDataSourceFactory();
+            DbDataSource dataSource = factory.CreateDataSource("Data Source=:memory:");
+
+            DbSessionFactory sessionFactory = new DbSessionFactory(dataSource);
+
+            await using (IDbTransactionSession session = await sessionFactory.CreateSessionWithTransactionAsync())
+            {
+                IDbSession plainSession = session;
+
+                Assert.NotNull(plainSession.Transaction);
+                Assert.Same(session.Transaction, plainSession.Transaction);
             }
         }
 
@@ -52,14 +81,14 @@ namespace EasyReasy.Database.Tests
         }
 
         [Fact]
-        public async Task CreateSessionWithTransactionAsync_WhenDisposed_ConnectionAndTransactionAreDisposed()
+        public async Task CreateSessionWithTransactionAsync_WhenDisposed_ConnectionIsClosed()
         {
             SqliteDataSourceFactory factory = new SqliteDataSourceFactory();
             DbDataSource dataSource = factory.CreateDataSource("Data Source=:memory:");
 
             DbSessionFactory sessionFactory = new DbSessionFactory(dataSource);
 
-            IDbSession session = await sessionFactory.CreateSessionWithTransactionAsync();
+            IDbTransactionSession session = await sessionFactory.CreateSessionWithTransactionAsync();
             DbConnection connection = session.Connection;
 
             await session.DisposeAsync();
@@ -96,7 +125,7 @@ namespace EasyReasy.Database.Tests
 
             DbSessionFactory sessionFactory = new DbSessionFactory(dataSource);
 
-            await using (IDbSession session = await sessionFactory.CreateSessionWithTransactionAsync())
+            await using (IDbTransactionSession session = await sessionFactory.CreateSessionWithTransactionAsync())
             {
                 DbCommand command = session.Connection.CreateCommand();
                 command.Transaction = session.Transaction;

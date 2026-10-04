@@ -60,4 +60,6 @@ EasyReasy.Database                  (core; no dependencies in this repository)
 
 `EasyReasy.Database.Testing`, `.Npgsql`, `.Sqlite`, `.Mapping` and `.Logging` all sit directly on core and are independent of each other.
 
+A package records the minimum version of each package it references in this repository when it is packed, taken from that project's `VersionPrefix` at that moment. After a core major bump, the next release of any package that references core therefore requires the new core major, even when its own code is unchanged. A consumer that references the older core directly then gets a package-downgrade error (NU1605), and one that gets core only through that package is moved to the new core.
+
 The tag version overrides the csproj `VersionPrefix` at build time, so the source-controlled version mainly matters for local `dotnet pack` runs. Bumping it alongside the change being shipped is still recommended so `git blame` on the csproj tells the same story as the tag.

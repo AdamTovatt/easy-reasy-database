@@ -18,7 +18,7 @@ namespace EasyReasy.Database
         /// The caller is responsible for committing or rolling back the transaction.
         /// </summary>
         /// <returns>A database session with an active transaction.</returns>
-        Task<IDbSession> CreateSessionWithTransactionAsync();
+        Task<IDbTransactionSession> CreateSessionWithTransactionAsync();
     }
 }
 

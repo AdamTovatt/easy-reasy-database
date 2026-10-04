@@ -12,7 +12,13 @@ Utilities for testing code that uses the EasyReasy.Database library.
 dotnet add package EasyReasy.Database.Testing
 ```
 
-> **Version note:** 2.0.0 targets `net10.0` (1.x targeted `net8.0`). The framework bump is the only breaking change — every API that shipped in 1.x is unchanged. Projects still on .NET 8 should stay on 1.0.1; everything added in 2.0.0 (per-checkout database naming, repository-root lookup) is net10-only, matching the newer packages in this repository.
+> **Version note:** 3.0.0 requires [EasyReasy.Database](../EasyReasy.Database/README.md) 2.0.0, and core 2.0.0 works only with Testing 3.0.0 or later. Upgrade both together. In 3.0.0:
+> - Testing 1.x and 2.x declare a core dependency that NuGet also satisfies with core 2.0.0, so the mismatch installs without a warning and then fails at runtime with a missing-method or type-load error in `FakeDbSessionFactory` and `TestDatabaseManager`.
+> - `FakeDbSessionFactory.CreateSessionWithTransactionAsync()` and `TestDatabaseManager.CreateTransactionSessionAsync()` return `IDbTransactionSession`.
+> - `FakeDbSession.Transaction` returns a [`FakeDbTransaction`](#fakedbtransaction) instead of `null`. The factory returns its one shared session from both of its methods, so a session from `CreateSessionAsync()` has that non-null transaction too.
+> - Like 2.0.0, 3.0.0 targets `net10.0`, so a .NET 8 project that uses this package stays on Testing 1.0.1 and core 1.x.
+>
+> 2.0.0 targets `net10.0` (1.x targeted `net8.0`). The framework bump is the only breaking change — every API that shipped in 1.x is unchanged. Projects still on .NET 8 should stay on 1.0.1; everything added in 2.0.0 (per-checkout database naming, repository-root lookup) is net10-only, matching the newer packages in this repository.
 
 ## For Service Tests (Unit Tests)
 
@@ -70,8 +76,29 @@ MockRepository.Verify(
 - `FakeDbSession.WasCommitted` - Tracks if `CommitAsync()` was called
 - `FakeDbSession.WasRolledBack` - Tracks if `RollbackAsync()` was called
 - `FakeDbSession.WasDisposed` - Tracks if session was disposed
+- `FakeDbSession.Transaction` - One `FakeDbTransaction` per session, never `null`, the same instance whether the session is read as an `IDbTransactionSession` or an `IDbSession`
 - `FakeDbSessionFactory.CreateSessionCallCount` - Number of times `CreateSessionAsync()` was called
 - `FakeDbSessionFactory.CreateSessionWithTransactionCallCount` - Number of times `CreateSessionWithTransactionAsync()` was called
+
+`FakeDbSession` implements `IDbTransactionSession`, so it can be returned from `CreateSessionWithTransactionAsync()` setups and passed to repository methods that take a required `IDbTransactionSession`.
+
+### FakeDbTransaction
+
+`FakeDbTransaction` is a do-nothing `DbTransaction`: commit and rollback do nothing, `Connection` is `null`, and `IsolationLevel` is `Unspecified`. It gives your own test sessions and mocks a non-null transaction to return without a database. Track commits and rollbacks on the session, as `FakeDbSession` does, not on the transaction.
+
+### Mocking IDbTransactionSession
+
+Prefer `FakeDbSession` over a mock. If you do mock `IDbTransactionSession`, set up `Transaction` twice. `IDbTransactionSession.Transaction` hides `IDbSession.Transaction`, so they are two separate interface members, and a mock answers each one separately. Code that reads the session as an `IDbSession`, such as a shared guard that checks `session.Transaction != null`, reads the second one:
+
+```csharp
+FakeDbTransaction transaction = new FakeDbTransaction();
+Mock<IDbTransactionSession> session = new Mock<IDbTransactionSession>();
+
+session.Setup(s => s.Transaction).Returns(transaction);                  // read as IDbTransactionSession
+session.As<IDbSession>().Setup(s => s.Transaction).Returns(transaction); // read as IDbSession
+```
+
+With only the first setup, `((IDbSession)session.Object).Transaction` returns `null`. A class with one public `Transaction` property, like `FakeDbSession` or your own test session, answers both members from that one property.
 
 ## For Repository Tests (Integration Tests)
 
@@ -115,7 +142,7 @@ public class MyRepositoryTests
     public async Task MyMethod_WhenValid_ReturnsExpected()
     {
         // Create a transaction session for this test
-        await using (IDbSession session = await TestDatabaseManager.CreateTransactionSessionAsync())
+        await using (IDbTransactionSession session = await TestDatabaseManager.CreateTransactionSessionAsync())
         {
             // All changes are automatically rolled back after this test
             int id = await Repository.CreateAsync(..., session);

@@ -23,16 +23,25 @@ namespace EasyReasy.Database
         {
             // The DbSession takes ownership of the connection and will dispose it
             DbConnection connection = await _dataSource.OpenConnectionAsync();
-            return new DbSession(connection, transaction: null);
+            return new DbSession(connection);
         }
 
         /// <inheritdoc/>
-        public async Task<IDbSession> CreateSessionWithTransactionAsync()
+        public async Task<IDbTransactionSession> CreateSessionWithTransactionAsync()
         {
-            // The DbSession takes ownership of the connection and will dispose it
+            // The DbTransactionSession takes ownership of the connection and transaction and will dispose them
             DbConnection connection = await _dataSource.OpenConnectionAsync();
-            DbTransaction transaction = await connection.BeginTransactionAsync();
-            return new DbSession(connection, transaction);
+            try
+            {
+                DbTransaction transaction = await connection.BeginTransactionAsync();
+                return new DbTransactionSession(connection, transaction);
+            }
+            catch
+            {
+                // No session owns the connection yet, so release it here
+                await connection.DisposeAsync();
+                throw;
+            }
         }
     }
 }

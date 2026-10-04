@@ -16,6 +16,7 @@ namespace EasyReasy.Database
 
         /// <summary>
         /// Gets the transaction, if one exists. Null if no transaction is active.
+        /// A session that always has a transaction is an <see cref="IDbTransactionSession"/>.
         /// </summary>
         DbTransaction? Transaction { get; }
 

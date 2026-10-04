@@ -3,8 +3,9 @@ using System.Data.Common;
 namespace EasyReasy.Database
 {
     /// <summary>
-    /// Implementation of IDbSession that wraps a connection and optional transaction.
-    /// Handles proper disposal of resources and transaction management.
+    /// Implementation of IDbSession that wraps a connection without a transaction.
+    /// Each command auto-commits when executed. A session with a transaction is a <see cref="DbTransactionSession"/>.
+    /// Handles proper disposal of the connection.
     /// </summary>
     public sealed class DbSession : IDbSession
     {
@@ -16,58 +17,48 @@ namespace EasyReasy.Database
         public DbConnection Connection { get; }
 
         /// <summary>
-        /// Gets the transaction, if one exists. Null if no transaction is active.
+        /// Gets the transaction. Always null, because this session never has a transaction.
         /// </summary>
-        public DbTransaction? Transaction { get; }
+        public DbTransaction? Transaction => null;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DbSession"/> class.
+        /// The session takes ownership of the connection and disposes it.
         /// </summary>
         /// <param name="connection">The database connection. Must not be null.</param>
-        /// <param name="transaction">Optional transaction to associate with the session.</param>
         /// <exception cref="ArgumentNullException">Thrown when connection is null.</exception>
-        public DbSession(DbConnection connection, DbTransaction? transaction)
+        public DbSession(DbConnection connection)
         {
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
-            Transaction = transaction;
         }
 
         /// <summary>
-        /// Commits the active transaction.
+        /// Always fails, because this session has no transaction to commit.
         /// </summary>
         /// <param name="cancellationToken">Optional cancellation token.</param>
-        /// <exception cref="InvalidOperationException">Thrown when no active transaction exists.</exception>
-        public async Task CommitAsync(CancellationToken cancellationToken = default)
+        /// <exception cref="InvalidOperationException">Always; the returned task faults with it.</exception>
+        public Task CommitAsync(CancellationToken cancellationToken = default)
         {
-            if (Transaction == null)
-                throw new InvalidOperationException("No active transaction to commit");
-
-            await Transaction.CommitAsync(cancellationToken);
+            return Task.FromException(new InvalidOperationException("No active transaction to commit"));
         }
 
         /// <summary>
-        /// Rolls back the active transaction.
+        /// Always fails, because this session has no transaction to roll back.
         /// </summary>
         /// <param name="cancellationToken">Optional cancellation token.</param>
-        /// <exception cref="InvalidOperationException">Thrown when no active transaction exists.</exception>
-        public async Task RollbackAsync(CancellationToken cancellationToken = default)
+        /// <exception cref="InvalidOperationException">Always; the returned task faults with it.</exception>
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
         {
-            if (Transaction == null)
-                throw new InvalidOperationException("No active transaction to rollback");
-
-            await Transaction.RollbackAsync(cancellationToken);
+            return Task.FromException(new InvalidOperationException("No active transaction to rollback"));
         }
 
         /// <summary>
-        /// Disposes the session, releasing the connection and transaction resources.
+        /// Disposes the session, releasing the connection.
         /// </summary>
         public async ValueTask DisposeAsync()
         {
             if (_disposed)
                 return;
-
-            if (Transaction != null)
-                await Transaction.DisposeAsync();
 
             await Connection.DisposeAsync();
 
@@ -75,4 +66,3 @@ namespace EasyReasy.Database
         }
     }
 }
-
