@@ -145,21 +145,43 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         [Fact]
-        public async Task GridReader_ReadSingleAsync_DateOnlyAndTimeOnly_ReadsColumnZero()
+        public async Task GridReader_ReadSingleAsync_DateOnly_ReadsColumnZero()
         {
-            await _connection.ExecuteAsync(
-                "INSERT INTO mapping_test (name, birth_date, start_time) VALUES (@name, @birthDate, @startTime)",
-                new { name = "grid_date_time", birthDate = new DateOnly(1990, 5, 15), startTime = new TimeOnly(9, 30) },
-                _transaction);
-
             await using GridReader gridReader = await _connection.QueryMultipleAsync(
-                @"SELECT birth_date FROM mapping_test WHERE name = @name;
-                  SELECT start_time FROM mapping_test WHERE name = @name",
-                new { name = "grid_date_time" },
-                _transaction);
+                "SELECT DATE '1990-05-15'",
+                transaction: _transaction);
 
             Assert.Equal(new DateOnly(1990, 5, 15), await gridReader.ReadSingleAsync<DateOnly>());
+        }
+
+        [Fact]
+        public async Task GridReader_ReadSingleAsync_TimeOnly_ReadsColumnZero()
+        {
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT TIME '09:30'",
+                transaction: _transaction);
+
             Assert.Equal(new TimeOnly(9, 30), await gridReader.ReadSingleAsync<TimeOnly>());
+        }
+
+        [Fact]
+        public async Task GridReader_ReadSingleAsync_ScalarInt_NoRows_Throws()
+        {
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT 1 WHERE FALSE",
+                transaction: _transaction);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await gridReader.ReadSingleAsync<int>());
+        }
+
+        [Fact]
+        public async Task GridReader_ReadSingleAsync_ScalarInt_MultipleRows_Throws()
+        {
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT n FROM (VALUES (1), (2)) AS v(n)",
+                transaction: _transaction);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await gridReader.ReadSingleAsync<int>());
         }
 
         [Fact]

@@ -7,8 +7,8 @@ namespace EasyReasy.Database.Mapping
     /// <summary>
     /// Reads <see cref="DbDataReader"/> results. For complex entity types, maps rows to CLR
     /// objects via reflection (with TypeHandlerRegistry, snake_case → PascalCase column mapping,
-    /// and constructor-based creation). For simple/primitive types (see <see cref="IsSimpleType"/>),
-    /// reads column 0 directly via the scalar helpers.
+    /// and constructor-based creation). For scalar types (see <see cref="IsScalarType"/>),
+    /// reads column 0 directly.
     /// </summary>
     internal static class RowDeserializer
     {
@@ -27,82 +27,48 @@ namespace EasyReasy.Database.Mapping
         private static readonly ConcurrentDictionary<Type, MethodInfo> GetFieldValueCache = new();
 
         /// <summary>
-        /// Maps every row from the reader onto an entity of type <typeparamref name="T"/>.
+        /// Reads every row from the reader as <typeparamref name="T"/> (see <see cref="RowReaderFor{T}"/>).
         /// </summary>
-        private static async Task<List<T>> ReadAllEntitiesAsync<T>(DbDataReader reader)
+        internal static async Task<List<T>> ReadAllAsync<T>(DbDataReader reader)
         {
             List<T> results = new List<T>();
 
-            if (!reader.HasRows)
+            if (!await reader.ReadAsync())
             {
                 return results;
             }
 
-            EntityMapping mapping = GetMapping<T>(reader);
+            Func<DbDataReader, T> readRow = RowReaderFor<T>(reader);
 
-            while (await reader.ReadAsync())
+            do
             {
-                T instance = CreateInstance<T>(reader, mapping);
-                results.Add(instance);
+                results.Add(readRow(reader));
             }
+            while (await reader.ReadAsync());
 
             return results;
         }
 
         /// <summary>
-        /// Reads every row from the reader as <typeparamref name="T"/>: column 0 for a simple type,
-        /// otherwise a mapped entity. For a simple type, a NULL column 0 reads as null when
-        /// <typeparamref name="T"/> can hold null, and throws <see cref="InvalidCastException"/> when it
-        /// cannot, rather than silently producing default(T).
-        /// </summary>
-        internal static async Task<List<T>> ReadAllAsync<T>(DbDataReader reader)
-        {
-            if (IsSimpleType(typeof(T)))
-            {
-                return await ReadAllScalarsAsync<T>(reader);
-            }
-
-            return await ReadAllEntitiesAsync<T>(reader);
-        }
-
-        /// <summary>
-        /// Reads exactly one row from the reader as <typeparamref name="T"/>: column 0 for a simple type,
-        /// otherwise a mapped entity. Throws if the reader has zero rows or more than one. A NULL column 0
-        /// in the one row is a value, not a missing row: it reads as null when <typeparamref name="T"/> can
-        /// hold null, and throws <see cref="InvalidCastException"/> when it cannot.
+        /// Reads exactly one row from the reader as <typeparamref name="T"/> (see <see cref="RowReaderFor{T}"/>).
+        /// Throws if the reader has zero rows or more than one. A NULL column 0 in the one row of a scalar
+        /// read is a value, not a missing row.
         /// </summary>
         internal static async Task<T> ReadSingleAsync<T>(DbDataReader reader)
         {
-            if (IsSimpleType(typeof(T)))
+            if (!await reader.ReadAsync())
             {
-                if (!await reader.ReadAsync())
-                {
-                    throw new InvalidOperationException("Sequence contains no elements.");
-                }
-
-                T? value = ReadScalarValue<T>(reader);
-
-                if (await reader.ReadAsync())
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                return value!;
+                throw NoElements();
             }
 
-            List<T> results = await ReadAllEntitiesAsync<T>(reader);
+            T value = RowReaderFor<T>(reader)(reader);
 
-            if (results.Count == 0)
+            if (await reader.ReadAsync())
             {
-                throw new InvalidOperationException("Sequence contains no elements.");
+                throw MoreThanOneElement();
             }
 
-            if (results.Count > 1)
-            {
-                throw new InvalidOperationException("Sequence contains more than one element.");
-            }
-
-            return results[0];
+            return value;
         }
 
         /// <summary>
@@ -111,26 +77,19 @@ namespace EasyReasy.Database.Mapping
         /// </summary>
         internal static async Task<T?> ReadSingleOrDefaultAsync<T>(DbDataReader reader)
         {
-            if (IsSimpleType(typeof(T)))
+            if (!await reader.ReadAsync())
             {
-                T? value = await ReadScalarAsync<T>(reader);
-
-                if (await reader.ReadAsync())
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                return value;
+                return default;
             }
 
-            List<T> results = await ReadAllEntitiesAsync<T>(reader);
+            T value = RowReaderFor<T>(reader)(reader);
 
-            if (results.Count > 1)
+            if (await reader.ReadAsync())
             {
-                throw new InvalidOperationException("Sequence contains more than one element.");
+                throw MoreThanOneElement();
             }
 
-            return results.Count == 0 ? default : results[0];
+            return value;
         }
 
         /// <summary>
@@ -139,65 +98,68 @@ namespace EasyReasy.Database.Mapping
         /// </summary>
         internal static async Task<T?> ReadFirstOrDefaultAsync<T>(DbDataReader reader)
         {
-            if (IsSimpleType(typeof(T)))
-            {
-                return await ReadScalarAsync<T>(reader);
-            }
-
-            List<T> results = await ReadAllEntitiesAsync<T>(reader);
-
-            return results.Count == 0 ? default : results[0];
-        }
-
-        /// <summary>
-        /// Reads a single scalar value from the reader. Returns default if there are no rows.
-        /// Throws if a row exists but column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type.
-        /// </summary>
-        private static async Task<T?> ReadScalarAsync<T>(DbDataReader reader)
-        {
             if (!await reader.ReadAsync())
             {
                 return default;
             }
 
-            return ReadScalarValue<T>(reader);
+            return RowReaderFor<T>(reader)(reader);
         }
 
         /// <summary>
-        /// Reads column 0 of every row from the reader into a list of <typeparamref name="T"/>.
-        /// Throws if any row's column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type,
-        /// rather than silently producing default(T).
+        /// Returns how to turn the reader's current row into a <typeparamref name="T"/>: column 0 for a
+        /// scalar type (see <see cref="IsScalarType"/>), otherwise a mapped entity. For a scalar, a NULL
+        /// column 0 reads as null when <typeparamref name="T"/> can hold null, and throws
+        /// <see cref="InvalidCastException"/> when it cannot, rather than silently producing default(T).
+        /// Called once the reader is on its first row, so an empty result never builds an entity mapping.
         /// </summary>
-        private static async Task<List<T>> ReadAllScalarsAsync<T>(DbDataReader reader)
+        private static Func<DbDataReader, T> RowReaderFor<T>(DbDataReader reader)
         {
-            List<T> results = new List<T>();
-
-            while (await reader.ReadAsync())
+            if (IsScalarType(typeof(T)))
             {
-                results.Add(ReadScalarValue<T>(reader)!);
+                return row => ReadScalarValue<T>(row)!;
             }
 
-            return results;
+            EntityMapping mapping = GetMapping<T>(reader);
+            return row => CreateInstance<T>(row, mapping);
+        }
+
+        private static InvalidOperationException NoElements()
+        {
+            return new InvalidOperationException("Sequence contains no elements.");
+        }
+
+        private static InvalidOperationException MoreThanOneElement()
+        {
+            return new InvalidOperationException("Sequence contains more than one element.");
         }
 
         /// <summary>
         /// Returns true for types that are one column value, read from column 0, rather than an entity
         /// whose properties are mapped from the row's columns. Every read that accepts both kinds of
         /// <c>T</c> dispatches on this, so they all agree on which is which.
-        /// <c>byte[]</c> is a column value (bytea, BLOB), not an entity: mapped as one, its
-        /// <c>byte[](int length)</c> constructor would produce an empty array for every row.
+        /// <para>
+        /// A type missing from this list is mapped as an entity, and the entity path does not fail when
+        /// nothing maps: a constructor parameter with no matching column gets its default. So a missing
+        /// column-value type reads as an empty value per row rather than throwing, which is how
+        /// <c>byte[]</c> (through <c>byte[](int length)</c>) once read as an empty array. Arrays of every
+        /// element type and <see cref="TimeSpan"/> are listed for that reason. Making the entity path
+        /// throw when no column maps would catch the rest, but would also change what an entity query
+        /// whose columns match none of its properties returns, so it is left to its own change.
+        /// </para>
         /// </summary>
-        private static bool IsSimpleType(Type type)
+        private static bool IsScalarType(Type type)
         {
             Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
             return underlyingType.IsPrimitive
                 || underlyingType == typeof(string)
-                || underlyingType == typeof(byte[])
+                || underlyingType.IsArray
                 || underlyingType == typeof(decimal)
                 || underlyingType == typeof(DateTime)
                 || underlyingType == typeof(DateTimeOffset)
                 || underlyingType == typeof(DateOnly)
                 || underlyingType == typeof(TimeOnly)
+                || underlyingType == typeof(TimeSpan)
                 || underlyingType == typeof(Guid)
                 || underlyingType.IsEnum;
         }
@@ -374,7 +336,7 @@ namespace EasyReasy.Database.Mapping
         /// <summary>
         /// Converts a scalar value to the target type.
         /// </summary>
-        private static T? ConvertValue<T>(object value, Type targetType)
+        internal static T? ConvertValue<T>(object value, Type targetType)
         {
             Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 

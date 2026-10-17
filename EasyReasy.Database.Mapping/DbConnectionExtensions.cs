@@ -10,14 +10,15 @@ namespace EasyReasy.Database.Mapping
     public static class DbConnectionExtensions
     {
         /// <summary>
-        /// Executes a query and returns the resulting rows deserialized into <typeparamref name="T"/>.
+        /// Executes a query and returns the resulting rows deserialized into <typeparamref name="T"/>,
+        /// or column 0 of each row when <typeparamref name="T"/> is a scalar type.
         /// </summary>
-        /// <typeparam name="T">The entity type to deserialize each row into.</typeparam>
+        /// <typeparam name="T">The entity type to deserialize each row into, or the scalar type to read.</typeparam>
         /// <param name="connection">The database connection.</param>
         /// <param name="sql">The SQL query to execute.</param>
         /// <param name="param">An anonymous object whose properties are used as query parameters.</param>
         /// <param name="transaction">An optional transaction to associate with the command.</param>
-        /// <returns>An enumerable of deserialized entities.</returns>
+        /// <returns>An enumerable of deserialized entities or scalar values.</returns>
         public static async Task<IEnumerable<T>> QueryAsync<T>(
             this DbConnection connection,
             string sql,
@@ -34,15 +35,17 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Executes a query and returns exactly one row deserialized into <typeparamref name="T"/>.
-        /// Throws if the query returns zero or more than one row.
+        /// Executes a query and returns exactly one row deserialized into <typeparamref name="T"/>,
+        /// or its column 0 when <typeparamref name="T"/> is a scalar type.
+        /// Throws if the query returns zero or more than one row. For a scalar type, a NULL value in the
+        /// one row is returned as null rather than treated as a missing row.
         /// </summary>
-        /// <typeparam name="T">The entity type to deserialize.</typeparam>
+        /// <typeparam name="T">The entity type to deserialize, or the scalar type to read.</typeparam>
         /// <param name="connection">The database connection.</param>
         /// <param name="sql">The SQL query to execute.</param>
         /// <param name="param">An anonymous object whose properties are used as query parameters.</param>
         /// <param name="transaction">An optional transaction to associate with the command.</param>
-        /// <returns>The single deserialized entity.</returns>
+        /// <returns>The single deserialized entity or scalar value.</returns>
         public static async Task<T> QuerySingleAsync<T>(
             this DbConnection connection,
             string sql,
@@ -59,15 +62,17 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Executes a query and returns zero or one row deserialized into <typeparamref name="T"/>.
+        /// Executes a query and returns zero or one row deserialized into <typeparamref name="T"/>,
+        /// or its column 0 when <typeparamref name="T"/> is a scalar type.
         /// Returns the default value if no rows are returned. Throws if more than one row is returned.
+        /// For a nullable scalar type, no rows and one row holding NULL both return null.
         /// </summary>
-        /// <typeparam name="T">The entity type to deserialize.</typeparam>
+        /// <typeparam name="T">The entity type to deserialize, or the scalar type to read.</typeparam>
         /// <param name="connection">The database connection.</param>
         /// <param name="sql">The SQL query to execute.</param>
         /// <param name="param">An anonymous object whose properties are used as query parameters.</param>
         /// <param name="transaction">An optional transaction to associate with the command.</param>
-        /// <returns>The deserialized entity, or default if no rows.</returns>
+        /// <returns>The deserialized entity or scalar value, or default if no rows.</returns>
         public static async Task<T?> QuerySingleOrDefaultAsync<T>(
             this DbConnection connection,
             string sql,
@@ -84,15 +89,16 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Executes a query and returns the first row deserialized into <typeparamref name="T"/>,
+        /// Executes a query and returns the first row deserialized into <typeparamref name="T"/>
+        /// (or its column 0 when <typeparamref name="T"/> is a scalar type),
         /// or the default value if no rows are returned. Does not throw if multiple rows are returned.
         /// </summary>
-        /// <typeparam name="T">The entity type to deserialize.</typeparam>
+        /// <typeparam name="T">The entity type to deserialize, or the scalar type to read.</typeparam>
         /// <param name="connection">The database connection.</param>
         /// <param name="sql">The SQL query to execute.</param>
         /// <param name="param">An anonymous object whose properties are used as query parameters.</param>
         /// <param name="transaction">An optional transaction to associate with the command.</param>
-        /// <returns>The first deserialized entity, or default if no rows.</returns>
+        /// <returns>The first deserialized entity or scalar value, or default if no rows.</returns>
         public static async Task<T?> QueryFirstOrDefaultAsync<T>(
             this DbConnection connection,
             string sql,
@@ -156,21 +162,7 @@ namespace EasyReasy.Database.Mapping
                     return default;
                 }
 
-                Type targetType = typeof(T);
-                Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-                // Check handler first
-                if (TypeHandlerRegistry.TryGetHandler(underlyingType, out ITypeHandler? handler) && handler != null)
-                {
-                    return (T?)handler.Parse(underlyingType, result);
-                }
-
-                if (result is T typedResult)
-                {
-                    return typedResult;
-                }
-
-                return (T)Convert.ChangeType(result, underlyingType);
+                return RowDeserializer.ConvertValue<T>(result, typeof(T));
             }
         }
 

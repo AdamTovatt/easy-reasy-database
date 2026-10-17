@@ -185,6 +185,26 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         [Fact]
+        public async Task QueryAsync_ScalarIntArray_ReturnsColumnZeroOfEachRow()
+        {
+            IEnumerable<int[]> results = await _connection.QueryAsync<int[]>(
+                "SELECT ARRAY[1, 2] UNION ALL SELECT ARRAY[3]",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { new[] { 1, 2 }, new[] { 3 } }, results);
+        }
+
+        [Fact]
+        public async Task QueryAsync_ScalarTimeSpan_ReturnsColumnZeroOfEachRow()
+        {
+            IEnumerable<TimeSpan> results = await _connection.QueryAsync<TimeSpan>(
+                "SELECT INTERVAL '90 minutes' UNION ALL SELECT INTERVAL '2 seconds'",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { TimeSpan.FromMinutes(90), TimeSpan.FromSeconds(2) }, results);
+        }
+
+        [Fact]
         public async Task QueryAsync_ScalarNoRows_ReturnsEmpty()
         {
             IEnumerable<Guid> results = await _connection.QueryAsync<Guid>(
@@ -476,9 +496,34 @@ namespace EasyReasy.Database.Mapping.Tests
             Assert.Equal(1, count);
         }
 
+        [Fact]
+        public async Task QuerySingleAsync_ScalarInt_NoRows_Throws()
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _connection.QuerySingleAsync<int>("SELECT 1 WHERE FALSE", transaction: _transaction));
+        }
+
+        [Fact]
+        public async Task QuerySingleAsync_ScalarInt_MultipleRows_Throws()
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _connection.QuerySingleAsync<int>(
+                    "SELECT n FROM (VALUES (1), (2)) AS v(n)",
+                    transaction: _transaction));
+        }
+
         #endregion
 
         #region QuerySingleOrDefaultAsync
+
+        [Fact]
+        public async Task QuerySingleOrDefaultAsync_ScalarInt_MultipleRows_Throws()
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _connection.QuerySingleOrDefaultAsync<int>(
+                    "SELECT n FROM (VALUES (1), (2)) AS v(n)",
+                    transaction: _transaction));
+        }
 
         [Fact]
         public async Task QuerySingleOrDefaultAsync_OneRow_ReturnsEntity()
