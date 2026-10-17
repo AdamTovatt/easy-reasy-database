@@ -106,7 +106,7 @@ long count = await connection.ExecuteScalarAsync<long>(
 
 ### QueryMultipleAsync
 
-Executes a query with multiple result sets. Returns a `GridReader` for reading them sequentially.
+Executes a query with multiple result sets. Returns a `GridReader` for reading them sequentially. `ReadAsync` and `ReadSingleAsync` read a result set the way `QueryAsync` and `QuerySingleAsync` read theirs, scalar types included.
 
 ```csharp
 await using GridReader grid = await connection.QueryMultipleAsync(
@@ -357,7 +357,7 @@ The following types are supported for entity properties, constructor parameters,
 
 All types also work as `Nullable<T>` (e.g. `int?`, `DateOnly?`). NULL database values map to `null` for nullable properties and are skipped for non-nullable ones.
 
-A **scalar query** is one whose `T` is a type from this table (`QueryAsync<int>`, `QuerySingleAsync<Guid>`, `QueryAsync<byte[]>`, etc.): it reads column 0 of each row instead of mapping columns onto properties. For scalar queries the NULL rule is stricter: a NULL column value throws `InvalidCastException` when `T` is a non-nullable value type, rather than silently returning the type's default (e.g. `Guid.Empty` or `0`). Use `T?` (e.g. `QueryAsync<int?>`) when the column can be NULL.
+A **scalar query** is one whose `T` is a type from this table (`QueryAsync<int>`, `QuerySingleAsync<Guid>`, `QueryAsync<byte[]>`, `GridReader.ReadAsync<string>`, etc.): it reads column 0 of each row instead of mapping columns onto properties. For scalar queries the NULL rule is stricter: a NULL column value throws `InvalidCastException` when `T` is a non-nullable value type, rather than silently returning the type's default (e.g. `Guid.Empty` or `0`). Use `T?` (e.g. `QueryAsync<int?>`) when the column can be NULL.
 
 ## Design Decisions
 

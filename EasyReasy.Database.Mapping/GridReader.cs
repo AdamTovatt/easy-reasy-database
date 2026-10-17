@@ -19,17 +19,16 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Reads all rows from the current result set and advances to the next one.
+        /// Reads all rows (or column 0 of each row, for a scalar type) from the current result set
+        /// and advances to the next one.
         /// </summary>
-        /// <typeparam name="T">The entity type to deserialize each row into.</typeparam>
-        /// <returns>An enumerable of deserialized entities.</returns>
+        /// <typeparam name="T">The entity type to deserialize each row into, or the scalar type to read.</typeparam>
+        /// <returns>An enumerable of deserialized entities or scalar values.</returns>
         public async Task<IEnumerable<T>> ReadAsync<T>()
         {
             await AdvanceToNextResultIfNeededAsync();
 
-            List<T> results = await RowDeserializer.DeserializeAsync<T>(_reader);
-
-            return results;
+            return await RowDeserializer.ReadAllAsync<T>(_reader);
         }
 
         /// <summary>

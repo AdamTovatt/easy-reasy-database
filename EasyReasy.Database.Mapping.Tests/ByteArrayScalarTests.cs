@@ -184,6 +184,18 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         [Fact]
+        public async Task GridReader_ReadAsync_ScalarByteArray_ReturnsColumnZeroOfEachRow()
+        {
+            await InsertAsync(LargestValue, SmallestValue);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT value FROM scratch ORDER BY value",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { SmallestValue, LargestValue }, await gridReader.ReadAsync<byte[]>());
+        }
+
+        [Fact]
         public async Task GridReader_ReadSingleAsync_ScalarByteArray_OneRowWithNullColumn_ReturnsNull()
         {
             await InsertNullAsync();
