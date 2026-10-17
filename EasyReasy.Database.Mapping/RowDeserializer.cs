@@ -27,9 +27,9 @@ namespace EasyReasy.Database.Mapping
         private static readonly ConcurrentDictionary<Type, MethodInfo> GetFieldValueCache = new();
 
         /// <summary>
-        /// Deserializes all rows from the reader into a list of <typeparamref name="T"/>.
+        /// Maps every row from the reader onto an entity of type <typeparamref name="T"/>.
         /// </summary>
-        internal static async Task<List<T>> DeserializeAsync<T>(DbDataReader reader)
+        private static async Task<List<T>> ReadAllEntitiesAsync<T>(DbDataReader reader)
         {
             List<T> results = new List<T>();
 
@@ -47,6 +47,22 @@ namespace EasyReasy.Database.Mapping
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Reads every row from the reader as <typeparamref name="T"/>: column 0 for a simple type,
+        /// otherwise a mapped entity. For a simple type, a NULL column 0 reads as null when
+        /// <typeparamref name="T"/> can hold null, and throws <see cref="InvalidCastException"/> when it
+        /// cannot, rather than silently producing default(T).
+        /// </summary>
+        internal static async Task<List<T>> ReadAllAsync<T>(DbDataReader reader)
+        {
+            if (IsSimpleType(typeof(T)))
+            {
+                return await ReadAllScalarsAsync<T>(reader);
+            }
+
+            return await ReadAllEntitiesAsync<T>(reader);
         }
 
         /// <summary>
@@ -74,7 +90,7 @@ namespace EasyReasy.Database.Mapping
                 return value!;
             }
 
-            List<T> results = await DeserializeAsync<T>(reader);
+            List<T> results = await ReadAllEntitiesAsync<T>(reader);
 
             if (results.Count == 0)
             {
@@ -90,10 +106,54 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
+        /// Reads zero or one row from the reader as <typeparamref name="T"/>, as <see cref="ReadSingleAsync{T}"/>
+        /// does, but returns default when there are no rows. Throws if there is more than one row.
+        /// </summary>
+        internal static async Task<T?> ReadSingleOrDefaultAsync<T>(DbDataReader reader)
+        {
+            if (IsSimpleType(typeof(T)))
+            {
+                T? value = await ReadScalarAsync<T>(reader);
+
+                if (await reader.ReadAsync())
+                {
+                    throw new InvalidOperationException("Sequence contains more than one element.");
+                }
+
+                return value;
+            }
+
+            List<T> results = await ReadAllEntitiesAsync<T>(reader);
+
+            if (results.Count > 1)
+            {
+                throw new InvalidOperationException("Sequence contains more than one element.");
+            }
+
+            return results.Count == 0 ? default : results[0];
+        }
+
+        /// <summary>
+        /// Reads the first row from the reader as <typeparamref name="T"/>, or returns default when there
+        /// are no rows. Further rows are not an error.
+        /// </summary>
+        internal static async Task<T?> ReadFirstOrDefaultAsync<T>(DbDataReader reader)
+        {
+            if (IsSimpleType(typeof(T)))
+            {
+                return await ReadScalarAsync<T>(reader);
+            }
+
+            List<T> results = await ReadAllEntitiesAsync<T>(reader);
+
+            return results.Count == 0 ? default : results[0];
+        }
+
+        /// <summary>
         /// Reads a single scalar value from the reader. Returns default if there are no rows.
         /// Throws if a row exists but column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type.
         /// </summary>
-        internal static async Task<T?> ReadScalarAsync<T>(DbDataReader reader)
+        private static async Task<T?> ReadScalarAsync<T>(DbDataReader reader)
         {
             if (!await reader.ReadAsync())
             {
@@ -108,7 +168,7 @@ namespace EasyReasy.Database.Mapping
         /// Throws if any row's column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type,
         /// rather than silently producing default(T).
         /// </summary>
-        internal static async Task<List<T>> ReadAllScalarsAsync<T>(DbDataReader reader)
+        private static async Task<List<T>> ReadAllScalarsAsync<T>(DbDataReader reader)
         {
             List<T> results = new List<T>();
 
@@ -127,7 +187,7 @@ namespace EasyReasy.Database.Mapping
         /// <c>byte[]</c> is a column value (bytea, BLOB), not an entity: mapped as one, its
         /// <c>byte[](int length)</c> constructor would produce an empty array for every row.
         /// </summary>
-        internal static bool IsSimpleType(Type type)
+        private static bool IsSimpleType(Type type)
         {
             Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
             return underlyingType.IsPrimitive

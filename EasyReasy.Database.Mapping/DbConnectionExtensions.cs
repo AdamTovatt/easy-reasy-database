@@ -29,12 +29,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                if (RowDeserializer.IsSimpleType(typeof(T)))
-                {
-                    return await RowDeserializer.ReadAllScalarsAsync<T>(reader);
-                }
-
-                return await RowDeserializer.DeserializeAsync<T>(reader);
+                return await RowDeserializer.ReadAllAsync<T>(reader);
             }
         }
 
@@ -84,26 +79,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                if (RowDeserializer.IsSimpleType(typeof(T)))
-                {
-                    T? result = await RowDeserializer.ReadScalarAsync<T>(reader);
-
-                    if (await reader.ReadAsync())
-                    {
-                        throw new InvalidOperationException("Sequence contains more than one element.");
-                    }
-
-                    return result;
-                }
-
-                List<T> results = await RowDeserializer.DeserializeAsync<T>(reader);
-
-                if (results.Count > 1)
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                return results.Count == 0 ? default : results[0];
+                return await RowDeserializer.ReadSingleOrDefaultAsync<T>(reader);
             }
         }
 
@@ -128,14 +104,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                if (RowDeserializer.IsSimpleType(typeof(T)))
-                {
-                    return await RowDeserializer.ReadScalarAsync<T>(reader);
-                }
-
-                List<T> results = await RowDeserializer.DeserializeAsync<T>(reader);
-
-                return results.Count == 0 ? default : results[0];
+                return await RowDeserializer.ReadFirstOrDefaultAsync<T>(reader);
             }
         }
 

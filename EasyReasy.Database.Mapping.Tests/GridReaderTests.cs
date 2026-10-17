@@ -33,15 +33,8 @@ namespace EasyReasy.Database.Mapping.Tests
         [Fact]
         public async Task GridReader_ThreeResultSets_ReadsAllSequentially()
         {
-            await _connection.ExecuteAsync(
-                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
-                new { name = "grid_3_a", value = 1 },
-                _transaction);
-
-            await _connection.ExecuteAsync(
-                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
-                new { name = "grid_3_b", value = 2 },
-                _transaction);
+            await InsertRowAsync("grid_3_a", 1);
+            await InsertRowAsync("grid_3_b", 2);
 
             await using GridReader gridReader = await _connection.QueryMultipleAsync(
                 @"SELECT EXISTS(SELECT 1 FROM mapping_test WHERE name LIKE 'grid_3_%');
@@ -80,10 +73,7 @@ namespace EasyReasy.Database.Mapping.Tests
         [Fact]
         public async Task GridReader_WithParameters_BindsCorrectly()
         {
-            await _connection.ExecuteAsync(
-                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
-                new { name = "grid_param", value = 99 },
-                _transaction);
+            await InsertRowAsync("grid_param", 99);
 
             await using GridReader gridReader = await _connection.QueryMultipleAsync(
                 @"SELECT COUNT(*) FROM mapping_test WHERE name = @name;
@@ -96,6 +86,62 @@ namespace EasyReasy.Database.Mapping.Tests
 
             IEnumerable<MappingTestEntity> rows = await gridReader.ReadAsync<MappingTestEntity>();
             Assert.Equal(99, rows.Single().Value);
+        }
+
+        [Fact]
+        public async Task GridReader_ReadAsync_ScalarInt_ReadsColumnZeroOfEachRow()
+        {
+            await InsertRowAsync("grid_scalar_a", 1);
+            await InsertRowAsync("grid_scalar_b", 2);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT value FROM mapping_test WHERE name LIKE 'grid_scalar_%' ORDER BY name",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { 1, 2 }, await gridReader.ReadAsync<int>());
+        }
+
+        [Fact]
+        public async Task GridReader_ReadAsync_ScalarString_ReadsColumnZeroOfEachRow()
+        {
+            await InsertRowAsync("grid_scalar_a", 1);
+            await InsertRowAsync("grid_scalar_b", 2);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT name FROM mapping_test WHERE name LIKE 'grid_scalar_%' ORDER BY name",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { "grid_scalar_a", "grid_scalar_b" }, await gridReader.ReadAsync<string>());
+        }
+
+        [Fact]
+        public async Task GridReader_ReadAsync_ScalarIntFollowedByAnotherResultSet_ReadsBoth()
+        {
+            await InsertRowAsync("grid_scalar_a", 1);
+            await InsertRowAsync("grid_scalar_b", 2);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                @"SELECT value FROM mapping_test WHERE name LIKE 'grid_scalar_%' ORDER BY name;
+                  SELECT name AS Name, value AS Value FROM mapping_test WHERE name LIKE 'grid_scalar_%' ORDER BY name",
+                transaction: _transaction);
+
+            Assert.Equal(new[] { 1, 2 }, await gridReader.ReadAsync<int>());
+
+            List<MappingTestEntity> rows = (await gridReader.ReadAsync<MappingTestEntity>()).ToList();
+            Assert.Equal(new[] { "grid_scalar_a", "grid_scalar_b" }, rows.Select(row => row.Name));
+        }
+
+        [Fact]
+        public async Task GridReader_ReadAsync_ScalarNonNullableInt_NullColumn_Throws()
+        {
+            await InsertRowAsync("grid_scalar_null", null);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                "SELECT value FROM mapping_test WHERE name = @name",
+                new { name = "grid_scalar_null" },
+                _transaction);
+
+            await Assert.ThrowsAsync<InvalidCastException>(async () => await gridReader.ReadAsync<int>());
         }
 
         [Fact]
@@ -125,6 +171,14 @@ namespace EasyReasy.Database.Mapping.Tests
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await gridReader.ReadSingleAsync<MappingTestEntity>());
+        }
+
+        private async Task InsertRowAsync(string name, int? value)
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, value) VALUES (@name, @value)",
+                new { name, value },
+                _transaction);
         }
     }
 }
