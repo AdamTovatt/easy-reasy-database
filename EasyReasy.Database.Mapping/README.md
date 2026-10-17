@@ -51,7 +51,7 @@ IEnumerable<Customer> customers = await connection.QueryAsync<Customer>(
 
 ### QuerySingleAsync
 
-Returns exactly one row. Throws `InvalidOperationException` if zero or more than one row is returned.
+Returns exactly one row. Throws `InvalidOperationException` if zero or more than one row is returned. For a scalar `T`, a NULL value in that one row is returned as `null` (or throws `InvalidCastException` when `T` is a non-nullable value type); it is not treated as a missing row.
 
 ```csharp
 Customer customer = await connection.QuerySingleAsync<Customer>(
@@ -343,6 +343,7 @@ The following types are supported for entity properties, constructor parameters,
 | Type | PostgreSQL column | Notes |
 |---|---|---|
 | `string` | `text`, `varchar` | |
+| `byte[]` | `bytea` | |
 | `int`, `long`, `short`, `byte` | `integer`, `bigint`, `smallint` | |
 | `float`, `double` | `real`, `double precision` | |
 | `decimal` | `numeric`, `decimal` | |
@@ -356,7 +357,7 @@ The following types are supported for entity properties, constructor parameters,
 
 All types also work as `Nullable<T>` (e.g. `int?`, `DateOnly?`). NULL database values map to `null` for nullable properties and are skipped for non-nullable ones.
 
-For **scalar queries** (`QueryAsync<int>`, `QuerySingleAsync<Guid>`, etc.) the rule is stricter: a NULL column value throws `InvalidCastException` when `T` is a non-nullable value type, rather than silently returning the type's default (e.g. `Guid.Empty` or `0`). Use `T?` (e.g. `QueryAsync<int?>`) when the column can be NULL.
+A **scalar query** is one whose `T` is a type from this table (`QueryAsync<int>`, `QuerySingleAsync<Guid>`, `QueryAsync<byte[]>`, etc.): it reads column 0 of each row instead of mapping columns onto properties. For scalar queries the NULL rule is stricter: a NULL column value throws `InvalidCastException` when `T` is a non-nullable value type, rather than silently returning the type's default (e.g. `Guid.Empty` or `0`). Use `T?` (e.g. `QueryAsync<int?>`) when the column can be NULL.
 
 ## Design Decisions
 

@@ -50,6 +50,46 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
+        /// Reads exactly one row from the reader as <typeparamref name="T"/>: column 0 for a simple type,
+        /// otherwise a mapped entity. Throws if the reader has zero rows or more than one. A NULL column 0
+        /// in the one row is a value, not a missing row: it reads as null when <typeparamref name="T"/> can
+        /// hold null, and throws <see cref="InvalidCastException"/> when it cannot.
+        /// </summary>
+        internal static async Task<T> ReadSingleAsync<T>(DbDataReader reader)
+        {
+            if (IsSimpleType(typeof(T)))
+            {
+                if (!await reader.ReadAsync())
+                {
+                    throw new InvalidOperationException("Sequence contains no elements.");
+                }
+
+                T? value = ReadScalarValue<T>(reader);
+
+                if (await reader.ReadAsync())
+                {
+                    throw new InvalidOperationException("Sequence contains more than one element.");
+                }
+
+                return value!;
+            }
+
+            List<T> results = await DeserializeAsync<T>(reader);
+
+            if (results.Count == 0)
+            {
+                throw new InvalidOperationException("Sequence contains no elements.");
+            }
+
+            if (results.Count > 1)
+            {
+                throw new InvalidOperationException("Sequence contains more than one element.");
+            }
+
+            return results[0];
+        }
+
+        /// <summary>
         /// Reads a single scalar value from the reader. Returns default if there are no rows.
         /// Throws if a row exists but column 0 is NULL and <typeparamref name="T"/> is a non-nullable value type.
         /// </summary>
@@ -81,14 +121,18 @@ namespace EasyReasy.Database.Mapping
         }
 
         /// <summary>
-        /// Returns true for types that should be read as a single column rather than mapped row-to-properties.
-        /// Used by QueryAsync&lt;T&gt; / QuerySingleAsync&lt;T&gt; / QueryFirstOrDefaultAsync&lt;T&gt; to dispatch.
+        /// Returns true for types that are one column value, read from column 0, rather than an entity
+        /// whose properties are mapped from the row's columns. Every read that accepts both kinds of
+        /// <c>T</c> dispatches on this, so they all agree on which is which.
+        /// <c>byte[]</c> is a column value (bytea, BLOB), not an entity: mapped as one, its
+        /// <c>byte[](int length)</c> constructor would produce an empty array for every row.
         /// </summary>
         internal static bool IsSimpleType(Type type)
         {
             Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
             return underlyingType.IsPrimitive
                 || underlyingType == typeof(string)
+                || underlyingType == typeof(byte[])
                 || underlyingType == typeof(decimal)
                 || underlyingType == typeof(DateTime)
                 || underlyingType == typeof(DateTimeOffset)

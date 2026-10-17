@@ -42,42 +42,7 @@ namespace EasyReasy.Database.Mapping
         {
             await AdvanceToNextResultIfNeededAsync();
 
-            Type targetType = typeof(T);
-            bool isSimpleType = IsSimpleType(targetType);
-
-            if (isSimpleType)
-            {
-                T? result = await RowDeserializer.ReadScalarAsync<T>(_reader);
-
-                // Verify no additional rows
-                if (await _reader.ReadAsync())
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                if (result == null)
-                {
-                    throw new InvalidOperationException("Sequence contains no elements.");
-                }
-
-                return result;
-            }
-            else
-            {
-                List<T> results = await RowDeserializer.DeserializeAsync<T>(_reader);
-
-                if (results.Count == 0)
-                {
-                    throw new InvalidOperationException("Sequence contains no elements.");
-                }
-
-                if (results.Count > 1)
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                return results[0];
-            }
+            return await RowDeserializer.ReadSingleAsync<T>(_reader);
         }
 
         private async Task AdvanceToNextResultIfNeededAsync()
@@ -89,18 +54,6 @@ namespace EasyReasy.Database.Mapping
             }
 
             await _reader.NextResultAsync();
-        }
-
-        private static bool IsSimpleType(Type type)
-        {
-            Type underlyingType = Nullable.GetUnderlyingType(type) ?? type;
-            return underlyingType.IsPrimitive
-                || underlyingType == typeof(string)
-                || underlyingType == typeof(decimal)
-                || underlyingType == typeof(DateTime)
-                || underlyingType == typeof(DateTimeOffset)
-                || underlyingType == typeof(Guid)
-                || underlyingType.IsEnum;
         }
 
         /// <inheritdoc />

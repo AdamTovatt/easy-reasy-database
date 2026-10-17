@@ -59,36 +59,7 @@ namespace EasyReasy.Database.Mapping
             await using (DbCommand command = CreateCommand(connection, sql, param, transaction))
             await using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                if (RowDeserializer.IsSimpleType(typeof(T)))
-                {
-                    T? result = await RowDeserializer.ReadScalarAsync<T>(reader);
-
-                    if (await reader.ReadAsync())
-                    {
-                        throw new InvalidOperationException("Sequence contains more than one element.");
-                    }
-
-                    if (result == null)
-                    {
-                        throw new InvalidOperationException("Sequence contains no elements.");
-                    }
-
-                    return result;
-                }
-
-                List<T> results = await RowDeserializer.DeserializeAsync<T>(reader);
-
-                if (results.Count == 0)
-                {
-                    throw new InvalidOperationException("Sequence contains no elements.");
-                }
-
-                if (results.Count > 1)
-                {
-                    throw new InvalidOperationException("Sequence contains more than one element.");
-                }
-
-                return results[0];
+                return await RowDeserializer.ReadSingleAsync<T>(reader);
             }
         }
 
