@@ -15,11 +15,9 @@ namespace EasyReasy.Database.Mapping.Tests
     [Collection("Database")]
     public class ByteArrayScalarTests : IAsyncLifetime
     {
-        private const int CurrentKey = 0x07;
-
         private static readonly byte[] SmallestValue = [0x01];
-        private static readonly byte[] KeyedValueWithOtherKey = [0x02, 0x05];
-        private static readonly byte[] KeyedValueWithCurrentKey = [0x02, CurrentKey];
+        private static readonly byte[] MiddleValue = [0x02, 0x05];
+        private static readonly byte[] LongValue = [0x02, 0x06, 0x07];
         private static readonly byte[] LargestValue = [0x03];
 
         private readonly TestDatabaseFixture _fixture;
@@ -63,22 +61,18 @@ namespace EasyReasy.Database.Mapping.Tests
         [Fact]
         public async Task QueryAsync_ScalarByteArray_WithByteArrayAndIntParameters_ReturnsMatchingRows()
         {
-            await InsertAsync(SmallestValue, KeyedValueWithOtherKey, KeyedValueWithCurrentKey, LargestValue);
+            await InsertAsync(SmallestValue, MiddleValue, LongValue, LargestValue);
 
             IEnumerable<byte[]> values = await _connection.QueryAsync<byte[]>(
                 @"SELECT value
                   FROM scratch
-                  WHERE value > @after
-                    AND CASE WHEN length(value) < 2 THEN TRUE
-                             WHEN get_byte(value, 0) <> 2 THEN TRUE
-                             ELSE get_byte(value, 1) <> @currentKey
-                        END
+                  WHERE value > @after AND length(value) <= @maxLength
                   ORDER BY value
                   LIMIT @limit",
-                new { after = SmallestValue, currentKey = CurrentKey, limit = 100 },
+                new { after = SmallestValue, maxLength = 2, limit = 100 },
                 _transaction);
 
-            Assert.Equal(new[] { KeyedValueWithOtherKey, LargestValue }, values);
+            Assert.Equal(new[] { MiddleValue, LargestValue }, values);
         }
 
         [Fact]
@@ -148,14 +142,14 @@ namespace EasyReasy.Database.Mapping.Tests
         [Fact]
         public async Task QueryFirstOrDefaultAsync_ScalarByteArray_WithParameter_ReturnsColumnZeroOfTheFirstRow()
         {
-            await InsertAsync(SmallestValue, KeyedValueWithOtherKey, LargestValue);
+            await InsertAsync(SmallestValue, MiddleValue, LargestValue);
 
             byte[]? value = await _connection.QueryFirstOrDefaultAsync<byte[]>(
                 "SELECT value FROM scratch WHERE value > @after ORDER BY value",
                 new { after = SmallestValue },
                 _transaction);
 
-            Assert.Equal(KeyedValueWithOtherKey, value);
+            Assert.Equal(MiddleValue, value);
         }
 
         [Fact]
@@ -176,7 +170,7 @@ namespace EasyReasy.Database.Mapping.Tests
             await using GridReader gridReader = await _connection.QueryMultipleAsync(
                 @"SELECT value FROM scratch WHERE value > @after;
                   SELECT value FROM scratch WHERE value < @after",
-                new { after = KeyedValueWithOtherKey },
+                new { after = MiddleValue },
                 _transaction);
 
             Assert.Equal(LargestValue, await gridReader.ReadSingleAsync<byte[]>());

@@ -33,7 +33,8 @@ namespace EasyReasy.Database.Mapping
 
         /// <summary>
         /// Reads a single row (or scalar) from the current result set and advances to the next one.
-        /// Throws if the result set contains zero or more than one row.
+        /// Throws if the result set contains zero or more than one row. For a scalar type, a NULL value in
+        /// the one row is returned as null rather than treated as a missing row.
         /// </summary>
         /// <typeparam name="T">The type to read.</typeparam>
         /// <returns>The single value.</returns>
