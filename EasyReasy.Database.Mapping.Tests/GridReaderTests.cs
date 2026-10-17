@@ -99,6 +99,24 @@ namespace EasyReasy.Database.Mapping.Tests
         }
 
         [Fact]
+        public async Task GridReader_ReadSingleAsync_DateOnlyAndTimeOnly_ReadsColumnZero()
+        {
+            await _connection.ExecuteAsync(
+                "INSERT INTO mapping_test (name, birth_date, start_time) VALUES (@name, @birthDate, @startTime)",
+                new { name = "grid_date_time", birthDate = new DateOnly(1990, 5, 15), startTime = new TimeOnly(9, 30) },
+                _transaction);
+
+            await using GridReader gridReader = await _connection.QueryMultipleAsync(
+                @"SELECT birth_date FROM mapping_test WHERE name = @name;
+                  SELECT start_time FROM mapping_test WHERE name = @name",
+                new { name = "grid_date_time" },
+                _transaction);
+
+            Assert.Equal(new DateOnly(1990, 5, 15), await gridReader.ReadSingleAsync<DateOnly>());
+            Assert.Equal(new TimeOnly(9, 30), await gridReader.ReadSingleAsync<TimeOnly>());
+        }
+
+        [Fact]
         public async Task GridReader_ReadSingleAsync_NoRows_Throws()
         {
             await using GridReader gridReader = await _connection.QueryMultipleAsync(
