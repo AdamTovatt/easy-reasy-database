@@ -155,5 +155,22 @@ namespace EasyReasy.Database.Testing.Npgsql.Tests
                     roles: [new TestClusterRole("example_role", "NOLOGIN")],
                     lockKey: 1));
         }
+
+        /// <summary>
+        /// The lock wait reaches the lock: with valid roles, an unreachable host and a zero wait, only a
+        /// forwarded wait throws the lock's range error. A dropped one would reach the connection instead
+        /// and fail differently.
+        /// </summary>
+        [Fact]
+        public async Task EnsureAsync_WithAZeroLockWait_PassesItToTheLockAndThrowsWithoutConnecting()
+        {
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+                () => TestClusterRoles.EnsureAsync(
+                    "Host=nowhere.invalid;Username=postgres;Password=none",
+                    migrationRole: "postgres",
+                    roles: [new TestClusterRole("example_role", "NOLOGIN")],
+                    lockKey: 1,
+                    lockWait: TimeSpan.Zero));
+        }
     }
 }
