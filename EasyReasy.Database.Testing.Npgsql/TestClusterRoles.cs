@@ -17,9 +17,11 @@ namespace EasyReasy.Database.Testing.Npgsql
         /// <summary>
         /// Creates <paramref name="roles"/> if missing and grants <paramref name="migrationRole"/>
         /// membership in the ones marked <see cref="TestClusterRole.GrantToMigrationRole"/>. Takes the
-        /// cluster-wide lock identified by <paramref name="lockKey"/> for the duration.
+        /// cluster-wide lock identified by <paramref name="lockKey"/> for the duration, waiting up to
+        /// <paramref name="lockWait"/> for another holder, as <see cref="PostgresClusterLock.AcquireAsync"/>
+        /// describes.
         /// </summary>
-        public static async Task EnsureAsync(string connectionString, string migrationRole, IReadOnlyList<TestClusterRole> roles, long lockKey)
+        public static async Task EnsureAsync(string connectionString, string migrationRole, IReadOnlyList<TestClusterRole> roles, long lockKey, TimeSpan? lockWait = null)
         {
             // Role names cannot be parameterised, so they are interpolated into the DDL below — refuse
             // anything that is not a plain identifier before it reaches a statement. Note that
@@ -36,7 +38,7 @@ namespace EasyReasy.Database.Testing.Npgsql
                     .Where(role => role.GrantToMigrationRole)
                     .Select(role => $"\nGRANT {role.Name} TO {migrationRole};"));
 
-            await using PostgresClusterLock clusterLock = await PostgresClusterLock.AcquireAsync(connectionString, lockKey);
+            await using PostgresClusterLock clusterLock = await PostgresClusterLock.AcquireAsync(connectionString, lockKey, lockWait);
 
             await using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             await connection.OpenAsync();

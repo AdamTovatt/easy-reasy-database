@@ -88,6 +88,22 @@ Deleting a worktree leaves its derived database behind. The ownership marker is 
 
 `PostgresClusterLock` deliberately uses an unpooled connection, so a lock holder's session ends when the lock is released rather than going back to the pool still holding it. The reasoning is spelled out on `PostgresConnectionStrings.Unpooled`; the short version is that a pooled session outlives the `NpgsqlConnection` that borrowed it, because Npgsql 10 hands it back before resetting it — so anything whose *session* state matters, an advisory lock or a backend pid, needs the unpooled derivation. If you take advisory locks of your own on this cluster, do the same.
 
+### How long the lock waits
+
+`PostgresClusterLock.AcquireAsync` waits 60 seconds for another holder by default, then fails with PostgreSQL's lock-timeout error (SQLSTATE 55P03). That suits a role bootstrap, which is a handful of catalog statements.
+
+The wait belongs to the waiter, not the holder: `lockWait` only bounds how long *this* caller queues. So if you hold the lock across slower work, such as creating a database and running its first migration, either give that work a key of its own, or pass a longer `lockWait` to every caller of the shared key, `TestClusterRoles.EnsureAsync` included (it takes the same option). Otherwise a role bootstrap queued behind the slow holder still gives up after 60 seconds.
+
+```csharp
+// A key of its own, so slow provisioning never makes a role bootstrap wait.
+private const long ProvisioningLockKey = 424242002;
+
+await using PostgresClusterLock clusterLock = await PostgresClusterLock.AcquireAsync(
+    connectionString, ProvisioningLockKey, lockWait: TimeSpan.FromMinutes(5));
+```
+
+The wait is rounded up to whole seconds. It must be positive, because PostgreSQL reads a `lock_timeout` of zero as waiting forever, and at most about 24.8 days, PostgreSQL's limit.
+
 ### Mirroring in a non-.NET harness
 
 If the repository also has a non-.NET test harness (a Playwright suite, for example), mirror the derivation there. In full:
@@ -105,7 +121,7 @@ const databaseName = `${databasePrefix}${hash}`;
 
 Step 3's case is the one that bites: `prune-test-databases` only recognises a name whose hash is lowercase hex, so a mirror emitting uppercase would create databases no sweep can ever reclaim. The rest is softer — agreement between the harnesses is a convenience, not a correctness requirement, and two harnesses that canonicalised the path differently would simply own two databases instead of one, still isolated from every other checkout.
 
-The lock key and role definitions, however, MUST match exactly on both sides; pin them with a test in each harness.
+The lock key and role definitions, however, MUST match exactly on both sides; pin them with a test in each harness. A mirror's lock wait must also be at least as long as the slowest work any harness holds that key across.
 
 ## Proving a concurrency test reached its interleaving
 
